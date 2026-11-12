@@ -1,5 +1,11 @@
+using Microsoft.AspNetCore.Identity;
+using MyAcademy_IdentityEmailProject.Context;
+using MyAcademy_IdentityEmailProject.Entities;
+
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddIdentity<AppUser, IdentityRole>().AddEntityFrameworkStores<EmailContext>().AddDefaultTokenProviders();
+builder.Services.AddDbContext<EmailContext>();  
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
