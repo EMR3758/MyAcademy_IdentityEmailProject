@@ -1,0 +1,216 @@
+﻿@model List<MyAcademy_IdentityEmailProject.Entities.Message>
+
+@using System.Globalization
+@using System.Net
+@using System.Text.RegularExpressions
+
+@{
+    ViewData["Title"] = "Yıldızlı Mesajlar";
+    ViewData["ActiveMenu"] = "starred";
+    Layout = "~/Views/MessageLayout/Index.cshtml";
+
+    var messages = (Model ?? new List<MyAcademy_IdentityEmailProject.Entities.Message>())
+        .OrderByDescending(m => m.SendDate)
+        .ToList();
+}
+
+@functions {
+    static readonly CultureInfo Tr = new("tr-TR");
+
+    static readonly string[] AvatarColors =
+    {
+        "av-lav", "av-blue", "av-mint", "av-rose", "av-peach", "av-sun"
+    };
+
+    static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "?";
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return string.Concat(parts.Take(2).Select(p => p[0])).ToUpper(Tr);
+    }
+
+    static string AvatarColor(string? key)
+    {
+        var h = 0;
+
+        foreach (var c in key ?? "")
+            h = (h * 31 + c) & 0x7fffffff;
+
+        return AvatarColors[h % AvatarColors.Length];
+    }
+
+    static string Snippet(string? html, int max = 140)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return "";
+
+        var text = WebUtility.HtmlDecode(
+            Regex.Replace(html, "<[^>]+>", " ")
+        );
+
+        text = Regex.Replace(text, @"\s+", " ").Trim();
+
+        return text.Length > max
+            ? text[..max].TrimEnd() + "…"
+            : text;
+    }
+
+    static string ShortTime(DateTime d)
+    {
+        var today = DateTime.Today;
+
+        if (d.Date == today)
+            return d.ToString("HH:mm", Tr);
+
+        if (d.Date == today.AddDays(-1))
+            return "Dün";
+
+        if (d.Year == today.Year)
+            return d.ToString("d MMM", Tr);
+
+        return d.ToString("dd.MM.yyyy", Tr);
+    }
+}
+
+<section class="inbox" id="starred">
+
+    <div class="panel list-panel">
+
+        <div class="list-head">
+            <div class="list-title">
+                <div>
+                    <h1>Yıldızlı Mesajlar</h1>
+                    <div class="sub">
+                        @messages.Count yıldızlı mesaj
+                    </div>
+                </div>
+
+                <span class="count-pill">
+                    <i class="bi bi-star-fill"></i>
+                    @messages.Count
+                </span>
+            </div>
+        </div>
+
+        <div class="msg-list" id="msgList">
+
+            @foreach (var m in messages)
+            {
+                var snippet = Snippet(m.MessageDetail);
+
+                var detailUrl = Url.Action(
+                    "Detail",
+                    "Message",
+                    new { id = m.MessageId }
+                );
+
+                <article class="msg-item @(m.IsRead ? "" : "unread")"
+                         data-id="@m.MessageId"
+                         data-href="@detailUrl"
+                         tabindex="0"
+                         title="Mesajı aç">
+
+                    <div class="lead">
+
+                        <form asp-controller="Message"
+                              asp-action="ToggleFavorite"
+                              method="post">
+                            @* AntiForgeryToken'ı Form Tag Helper otomatik ekler *@
+                            <input type="hidden"
+                                   name="id"
+                                   value="@m.MessageId" />
+
+                            <input type="hidden"
+                                   name="returnUrl"
+                                   value="@Context.Request.Path" />
+
+                            <button class="star-btn on"
+                                    type="submit"
+                                    aria-label="Yıldızı kaldır"
+                                    title="Yıldızı kaldır">
+
+                                <i class="bi bi-star-fill"></i>
+
+                            </button>
+                        </form>
+
+                    </div>
+
+                    <span class="avatar @AvatarColor(m.SenderEmail)">
+                        @Initials(m.SenderEmail)
+                    </span>
+
+                    <div class="mi-sender">
+                        <span class="sender">
+                            @m.SenderEmail
+                        </span>
+
+                        @if (!m.IsRead)
+                        {
+                            <span class="unread-dot"></span>
+                        }
+                    </div>
+
+                    <div class="mi-main">
+                        <span class="subject">
+                            @m.Subject
+                        </span>
+
+                        <span class="snippet">
+                            @snippet
+                        </span>
+                    </div>
+
+                    <a href="@detailUrl"
+                       class="time"
+                       title="@m.SendDate.ToString("d MMMM yyyy, dddd HH:mm", Tr)">
+                        @ShortTime(m.SendDate)
+                    </a>
+
+                </article>
+            }
+
+            @if (!messages.Any())
+            {
+                <div class="empty-list">
+                    <div class="ic">
+                        <i class="bi bi-star"></i>
+                    </div>
+
+                    <h6>Henüz yıldızlı mesajınız yok</h6>
+
+                    <div>
+                        Gelen kutunuzdaki mesajları yıldızlayarak
+                        burada kolayca bulabilirsiniz.
+                    </div>
+                </div>
+            }
+
+        </div>
+
+    </div>
+
+</section>
+
+@section Scripts {
+    <script>
+        /* Satıra tıklayınca mesaj detayına git (yıldız formu hariç) — Gelen Kutusu ile aynı davranış */
+        (function () {
+            var list = document.getElementById('msgList');
+            if (!list) return;
+
+            function open(row) { if (row && row.dataset.href) location.href = row.dataset.href; }
+
+            list.addEventListener('click', function (e) {
+                if (e.target.closest('form, a, button')) return;
+                open(e.target.closest('.msg-item'));
+            });
+            list.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.target.closest('form, a, button')) open(e.target.closest('.msg-item'));
+            });
+        })();
+    </script>
+}

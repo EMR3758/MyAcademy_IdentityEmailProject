@@ -12,5 +12,8 @@
         public bool IsFavorite { get; set; }
         public int CategoryId { get; set; }
         public Category Category { get; set; }
+
+        public bool IsDraft { get; set; }
+        public bool IsTrash { get; set; } = false;
     }
 }

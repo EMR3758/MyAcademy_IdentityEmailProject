@@ -28,6 +28,33 @@
 
                     <form  method="post">
 
+                        @* Sunucudan dönen hatalar (Identity: kullanıcı adı/e-posta alınmış, şifre kuralları vb.).
+                           Yalnızca ModelState geçersizken render edilir; hata yoksa sayfada hiç yer kaplamaz. *@
+                        @if (!ViewData.ModelState.IsValid)
+                        {
+                            <style>
+                                .server-errors {
+                                    display: flex;
+                                    gap: 10px;
+                                    margin: 0 0 18px;
+                                    padding: 12px 14px;
+                                    border-radius: 12px;
+                                    background: var(--rose);
+                                    border: 1px solid rgba(194, 71, 107, .25);
+                                    color: var(--danger);
+                                    font-size: 13.5px;
+                                    line-height: 1.5;
+                                }
+                                .server-errors > .bi { font-size: 18px; line-height: 1.2; flex-shrink: 0; }
+                                .server-errors ul { margin: 0; padding-left: 18px; }
+                                .server-errors ul:has(> li:only-child) { padding-left: 0; list-style: none; }
+                            </style>
+                            <div class="server-errors" role="alert">
+                                <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
+                                <div asp-validation-summary="All"></div>
+                            </div>
+                        }
+
                         <div class="form-grid">
 
                             <div class="field" data-field="firstName">

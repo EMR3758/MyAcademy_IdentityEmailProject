@@ -219,6 +219,12 @@ namespace MyAcademy_IdentityEmailProject.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<int?>("ValidCode")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("VerificationCodeExpiry")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedEmail")
@@ -260,10 +266,16 @@ namespace MyAcademy_IdentityEmailProject.Migrations
                     b.Property<int>("CategoryId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsDraft")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsFavorite")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsTrash")
                         .HasColumnType("bit");
 
                     b.Property<string>("MessageDetail")
@@ -290,6 +302,31 @@ namespace MyAcademy_IdentityEmailProject.Migrations
                     b.HasIndex("CategoryId");
 
                     b.ToTable("Messages");
+                });
+
+            modelBuilder.Entity("MyAcademy_IdentityEmailProject.Entities.MessageFavorite", b =>
+                {
+                    b.Property<int>("MessageFavoriteId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MessageFavoriteId"));
+
+                    b.Property<int>("MessageId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("MessageFavoriteId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("MessageId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("MessageFavorites");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -352,6 +389,25 @@ namespace MyAcademy_IdentityEmailProject.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("MyAcademy_IdentityEmailProject.Entities.MessageFavorite", b =>
+                {
+                    b.HasOne("MyAcademy_IdentityEmailProject.Entities.Message", "Message")
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MyAcademy_IdentityEmailProject.Entities.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MyAcademy_IdentityEmailProject.Entities.Category", b =>

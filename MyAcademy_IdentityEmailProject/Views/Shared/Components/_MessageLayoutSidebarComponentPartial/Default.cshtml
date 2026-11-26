@@ -4,7 +4,7 @@
        Menü linkleri ileride asp-controller / asp-action ile değiştirilecek.
        ===================================================================== -->
 <aside class="app-sidebar" id="appSidebar" aria-label="Ana menü">
-    <a class="brand" data-page="inbox" href="#inbox">
+    <a class="brand" data-page="inbox" asp-controller="Message" asp-action="Inbox">
         <div class="brand-logo"><i class="bi bi-envelope-paper-heart-fill"></i></div>
         <div class="brand-name">Mail<span>ora</span></div>
     </a>
@@ -16,16 +16,35 @@
     <div class="nav-section-title">Menü</div>
     <ul class="side-nav">
         <li><a class="side-link" data-page="dashboard" href="#dashboard" data-tip="Dashboard"><i class="bi bi-grid-1x2"></i> <span class="lbl">Dashboard</span></a></li>
-        <li><a class="side-link" data-page="inbox" href="#inbox" data-tip="Gelen Kutusu"><i class="bi bi-inbox"></i> <span class="lbl">Gelen Kutusu</span> <span class="side-badge" id="badgeInbox"></span></a></li>
-        <li><a class="side-link" data-page="sent" href="#sent" data-tip="Gönderilenler"><i class="bi bi-send"></i> <span class="lbl">Gönderilenler</span></a></li>
+        <li><a class="side-link" data-page="inbox" asp-controller="Message" asp-action="Inbox" data-tip="Gelen Kutusu"><i class="bi bi-inbox"></i> <span class="lbl">Gelen Kutusu</span> <span class="side-badge" id="badgeInbox"></span></a></li>
+        <li><a class="side-link" data-page="sent" asp-controller="Message" asp-action="SendBox" data-tip="Gönderilenler"><i class="bi bi-send"></i> <span class="lbl">Gönderilenler</span></a></li>
         <li><a class="side-link" data-page="drafts" href="#drafts" data-tip="Taslaklar"><i class="bi bi-file-earmark-text"></i> <span class="lbl">Taslaklar</span> <span class="side-badge muted">3</span></a></li>
-        <li><a class="side-link" data-page="starred" href="#starred" data-tip="Yıldızlı Mesajlar"><i class="bi bi-star"></i> <span class="lbl">Yıldızlı Mesajlar</span> <span class="side-badge muted" id="badgeStarred"></span></a></li>
+        <li>
+            <a class="side-link"
+               data-page="starred"
+               asp-controller="Message"
+               asp-action="StarredMessages"
+               data-tip="Yıldızlı Mesajlar">
+                <i class="bi bi-star"></i>
+                <span class="lbl">Yıldızlı Mesajlar</span>
+                <span class="side-badge muted" id="badgeStarred"></span>
+            </a>
+        </li>
         <li><a class="side-link" data-page="trash" href="#trash" data-tip="Çöp Kutusu"><i class="bi bi-trash3"></i> <span class="lbl">Çöp Kutusu</span> <span class="side-badge muted" id="badgeTrash"></span></a></li>
     </ul>
 
     <div class="nav-section-title">Hesap</div>
     <ul class="side-nav">
-        <li><a class="side-link" data-page="profile" href="#profile" data-tip="Profilim"><i class="bi bi-person-circle"></i> <span class="lbl">Profilim</span></a></li>
+        <li>
+            <a class="side-link"
+               data-page="profile"
+               asp-controller="Profile"
+               asp-action="MyProfile"
+               data-tip="Profilim">
+                <i class="bi bi-person-circle"></i>
+                <span class="lbl">Profilim</span>
+            </a>
+        </li>
         <li><a class="side-link" data-page="settings" href="#settings" data-tip="Ayarlar"><i class="bi bi-gear"></i> <span class="lbl">Ayarlar</span></a></li>
     </ul>
 
