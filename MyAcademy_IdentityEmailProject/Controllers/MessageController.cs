@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using MyAcademy_IdentityEmailProject.Context;
 using MyAcademy_IdentityEmailProject.Entities;
+using MyAcademy_IdentityEmailProject.Services;
+using System.Net;
+using System.Text.RegularExpressions;
 
 
 namespace MYAcademy_IdentityEmailProject.Controllers
@@ -14,10 +17,12 @@ namespace MYAcademy_IdentityEmailProject.Controllers
     {
         private readonly EmailContext _context;
         private readonly UserManager<AppUser> _userManager;
-        public MessageController(EmailContext context, UserManager<AppUser> userManager)
+        private readonly IEmailService _emailService;
+        public MessageController(EmailContext context, UserManager<AppUser> userManager, IEmailService emailService)
         {
             _context = context;
             _userManager = userManager;
+            _emailService = emailService;
         }
         public async Task<IActionResult> Inbox()
         {
@@ -72,9 +77,78 @@ namespace MYAcademy_IdentityEmailProject.Controllers
             return View();
         }
         [HttpPost]
-        public IActionResult CreateMessage(Message message)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateMessage(Message message)
         {
-            return RedirectToAction("Sendbox");
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null) return Challenge();
+
+            message.SenderEmail = user.Email;
+            message.SendDate = DateTime.Now;
+            message.IsRead = false;
+            ModelState.Remove("SenderEmail");
+            ModelState.Remove("Category");
+            message.IsFavorite = false;
+            message.IsDraft = false;
+            message.IsTrash = false;
+
+            if (string.IsNullOrWhiteSpace(message.ReceiverEmail) ||
+       !Regex.IsMatch(message.ReceiverEmail,@"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+            {
+                ModelState.AddModelError("", "Geçerli bir alıcı e-posta adresi giriniz.");
+            }
+
+            if (string.IsNullOrWhiteSpace(message.Subject))
+                ModelState.AddModelError("", "Konu alanı boş bırakılamaz.");
+
+            if (string.IsNullOrWhiteSpace(message.MessageDetail))
+                ModelState.AddModelError("", "Mesaj içeriği boş bırakılamaz.");
+
+            var categoryExists = await _context.Categories.AnyAsync(x => x.CategoryId == message.CategoryId);
+            if (!categoryExists)
+                ModelState.AddModelError("", "Geçerli bir kategori seçiniz.");
+            if (!ModelState.IsValid)
+            {
+                ViewBag.Categories = new SelectList(
+                    _context.Categories.ToList(),
+                    "CategoryId",
+                    "CategoryName",
+                    message.CategoryId);
+                return View(message);
+            }
+            var receiver = await _userManager.FindByEmailAsync(message.ReceiverEmail);
+            try
+            {
+                if (receiver != null)
+                {
+                    _context.Messages.Add(message);
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    var plainText = WebUtility.HtmlDecode(Regex.Replace(message.MessageDetail, "<.*?>", " "));
+                    await _emailService.SendAsync(message.ReceiverEmail,message.Subject, plainText);
+                    _context.Messages.Add(message);
+                    await _context.SaveChangesAsync();
+                }
+                TempData["SuccessMessage"] = "Mesaj başarıyla gönderildi.";
+                return RedirectToAction(nameof(SendBox));
+            }
+            catch(Exception) 
+            {
+                    ModelState.AddModelError(
+                "",
+                "Mesaj gönderilemedi. Lütfen tekrar deneyiniz.");
+
+                    ViewBag.Categories = new SelectList(
+                        _context.Categories.ToList(),
+                        "CategoryId",
+                        "CategoryName",
+                        message.CategoryId);
+
+                    return View(message);
+            }
         }
 
         [Authorize]
@@ -90,12 +164,12 @@ namespace MYAcademy_IdentityEmailProject.Controllers
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ToggleFavorite(int id,string? returnUrl)
+        public async Task<IActionResult> ToggleFavorite(int id, string? returnUrl)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
                 return Challenge();
-            var message = await _context.Messages.FirstOrDefaultAsync(x=>x.MessageId == id && (x.SenderEmail == user.Email || x.ReceiverEmail == user.Email));
+            var message = await _context.Messages.FirstOrDefaultAsync(x => x.MessageId == id && (x.SenderEmail == user.Email || x.ReceiverEmail == user.Email));
             if (message == null)
                 return NotFound();
             var favorite = await _context.MessageFavorites.FirstOrDefaultAsync(x => x.MessageId == id && x.UserId == user.Id);
@@ -132,7 +206,7 @@ namespace MYAcademy_IdentityEmailProject.Controllers
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Challenge();
-            var values = await _context.MessageFavorites.Where(x=>x.UserId == user.Id && (x.Message.SenderEmail == user.Email || x.Message.ReceiverEmail == user.Email)).OrderByDescending(x=>x.Message.SendDate).Select(x=>x.Message).ToListAsync();
+            var values = await _context.MessageFavorites.Where(x => x.UserId == user.Id && (x.Message.SenderEmail == user.Email || x.Message.ReceiverEmail == user.Email)).OrderByDescending(x => x.Message.SendDate).Select(x => x.Message).ToListAsync();
             return View(values);
         }
 

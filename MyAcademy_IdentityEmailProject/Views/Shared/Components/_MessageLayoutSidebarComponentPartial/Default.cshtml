@@ -9,10 +9,14 @@
         <div class="brand-name">Mail<span>ora</span></div>
     </a>
 
-    <button class="btn-compose" data-page="compose" type="button" data-tip="Yeni Mesaj">
-        <i class="bi bi-pencil-square"></i> <span class="lbl">Yeni Mesaj</span>
-    </button>
-
+    <a class="btn-compose"
+       data-page="compose"
+       asp-controller="Message"
+       asp-action="CreateMessage"
+       data-tip="Yeni Mesaj">
+        <i class="bi bi-pencil-square"></i>
+        <span class="lbl">Yeni Mesaj</span>
+    </a>
     <div class="nav-section-title">Menü</div>
     <ul class="side-nav">
         <li><a class="side-link" data-page="dashboard" href="#dashboard" data-tip="Dashboard"><i class="bi bi-grid-1x2"></i> <span class="lbl">Dashboard</span></a></li>
