@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MyAcademy_IdentityEmailProject.Entities;
 
@@ -6,11 +6,21 @@ namespace MyAcademy_IdentityEmailProject.Context
 {
     public class EmailContext : IdentityDbContext<AppUser>
     {
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        public EmailContext(DbContextOptions<EmailContext> options) : base(options)
         {
-           optionsBuilder.UseSqlServer("Server=EMIRHAN\\SQLEXPRESS;initial Catalog=IdentityEmailDb;integrated Security=true;trust server certificate=true;");
         }
+
         public DbSet<Message> Messages { get; set; }
         public DbSet<Category> Categories { get; set; }
+        public DbSet<MessageFavorite> MessageFavorites { get; set; }
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+            builder.Entity<MessageFavorite>()
+                .HasIndex(x => new { x.MessageId, x.UserId })
+                .IsUnique();
+        }
+
     }
 }

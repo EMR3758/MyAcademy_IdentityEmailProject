@@ -1,0 +1,677 @@
+﻿@model MyAcademy_IdentityEmailProject.Models.MyProfileViewModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Profilim";
+    ViewData["ActiveMenu"] = "profile";   // Sidebar'daki data-page="profile" linkini aktif yapar
+    Layout = "~/Views/MessageLayout/Index.cshtml";
+
+    var tr = new CultureInfo("tr-TR");
+
+    // Görünen ad: Ad Soyad → yoksa kullanıcı adı
+    var fullName = string.Join(" ", new[] { Model.Name, Model.Surname }
+                                   .Where(s => !string.IsNullOrWhiteSpace(s))
+                                   .Select(s => s!.Trim()));
+    var displayName = string.IsNullOrWhiteSpace(fullName) ? (Model.Username ?? "Kullanıcı") : fullName;
+
+    // Avatar baş harfleri (fotoğraf yoksa ya da yüklenemezse gösterilir)
+    var initials = string.Concat(new[] { Model.Name, Model.Surname }
+                                 .Where(s => !string.IsNullOrWhiteSpace(s))
+                                 .Select(s => s!.Trim()[0]));
+    if (string.IsNullOrEmpty(initials))
+    {
+        initials = string.IsNullOrWhiteSpace(Model.Username) ? "?" : Model.Username.Trim()[0].ToString();
+    }
+    initials = initials.ToUpper(tr);
+
+    var hasImage = !string.IsNullOrWhiteSpace(Model.ImageUrl);
+    var hasDescription = !string.IsNullOrWhiteSpace(Model.Description);
+
+    // Şifre değişikliği sonucu (yalnızca ChangePassword başarılı olduğunda dolu gelir) → Hesap Güvenliği kartında
+    var passwordSuccessMessage = TempData["PasswordSuccessMessage"] as string;
+    var passwordChangedAt = TempData["PasswordChangedAt"] as string;
+
+    // Genel mesajlar → sayfanın üstünde gösterilir.
+    // SuccessMessage: UpdateProfile / UploadProfilePhoto, ErrorMessage: ChangePassword / UploadProfilePhoto.
+    // Burada okunmaları gerekir; okunmayan TempData bir sonraki sayfaya (ör. SignIn) taşınır.
+    var successMessage = TempData["SuccessMessage"] as string;
+    var errorMessage = TempData["ErrorMessage"] as string;
+
+    // UpdateProfile'ın ModelState'e eklediği model düzeyindeki hatalar (ör. UpdateAsync hataları)
+    var hasModelErrors = ViewData.ModelState.TryGetValue(string.Empty, out var modelEntry) && modelEntry.Errors.Count > 0;
+
+    // Alan hatalıysa mevcut .pf-field.has-error stilini uygular
+    string FieldClass(string key, string css = "pf-field") =>
+        ViewData.ModelState.TryGetValue(key, out var e) && e.Errors.Count > 0 ? css + " has-error" : css;
+}
+
+@* Profil sayfasına özel düzenlemeler — temel profil stilleri _MessageLayoutStyleComponentPartial (6d) içinde *@
+<style>
+    /* ---------- Genel ritim ---------- */
+    .profile { max-width: 1200px; }
+    .pf-head { margin-bottom: 16px; }
+    .pf-hero { margin-bottom: 18px; }
+    .pf-grid, .pf-col { gap: 18px; }
+
+    /* ---------- Bildirimler ---------- */
+    .pf-flash { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .pf-note.ok  { background: var(--mint); color: #3E9A77; }
+    .pf-note.err { background: var(--rose); color: #C2476B; }
+    .pf-note > i { font-size: 15px; line-height: 1.35; flex-shrink: 0; }
+    .pf-note ul { margin: 0; padding-left: 18px; }
+    .pf-note .when { display: block; font-size: 12px; opacity: .85; margin-top: 2px; }
+    .pf-flash .pf-note { margin: 0; align-items: center; font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow-sm); }
+    .pf-note-close {
+        margin-left: auto; flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 8px;
+        background: transparent; color: inherit; opacity: .7; display: grid; place-items: center;
+        transition: opacity .2s, background .2s;
+    }
+    .pf-note-close:hover { opacity: 1; background: rgba(255, 255, 255, .55); }
+
+    /* ---------- Profil başlığı ----------
+       Banner 140px · avatar 112px (yarısı banner'da, yarısı beyaz alanda) · beyaz alan ≈ 92px */
+    .pf-avatar > * { grid-area: 1 / 1; }                    /* fotoğraf ve baş harfler aynı hücrede üst üste */
+    .pf-avatar img { position: relative; z-index: 1; }
+
+    .pf-hero .pf-cover { height: 140px; }
+    .pf-hero .pf-main { margin-top: 0; padding: 0 28px 22px; gap: 20px; align-items: flex-start; }
+    .pf-hero .pf-avatar-wrap { margin-top: -56px; }
+    .pf-hero .pf-avatar {
+        width: 112px; height: 112px; font-size: 38px;
+        border: 4px solid #fff; box-shadow: 0 6px 20px rgba(91, 80, 170, .16);
+    }
+    .pf-hero .pf-id { flex: 1; min-width: 0; padding: 14px 0 0; }
+    .pf-hero .pf-name-row h2 { font-size: 26px; font-weight: 800; letter-spacing: -.6px; line-height: 1.2; }
+    .pf-hero .pf-meta { margin-top: 6px; gap: 4px 20px; font-size: 13.5px; color: var(--muted); }
+    .pf-hero .pf-meta span { gap: 6px; word-break: normal; overflow-wrap: anywhere; }
+    .pf-hero .pf-meta i { color: #A6A9B8; font-size: 14px; }
+    .pf-hero .pf-hero-actions { padding: 18px 0 0; }
+
+    /* ---------- Kartlar ---------- */
+    .pf-card { border: 1px solid #F1F0F8; }
+    .pf-card-head { padding: 18px 22px 0; }
+    .pf-card-head .ic { width: 38px; height: 38px; border-radius: 11px; font-size: 17px; }
+    .pf-card-head h3 { font-size: 15.5px; }
+    .pf-card-body { padding: 18px 22px 22px; }
+    .pf-card-foot { padding: 14px 22px; justify-content: flex-end; }
+    .pf-card-foot .btn-send { padding: 10px 18px; font-size: 13.5px; border-radius: 12px; }
+
+    /* ---------- Form alanları ---------- */
+    .pf-form-grid { gap: 14px 16px; }
+    .pf-sub {
+        grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-top: 6px;
+        font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    }
+    .pf-sub:first-child { margin-top: 0; }
+    .pf-sub::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+    .pf-input[readonly] { background: #F4F3FA; color: #6B6E82; cursor: default; padding-right: 38px; }
+    .pf-input[readonly]:focus { background: #F4F3FA; border-color: var(--border); box-shadow: none; }
+    .pf-input-wrap > i.lock { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #B5B8C6; font-size: 13px; pointer-events: none; }
+    textarea.pf-input { min-height: 112px; }
+    .pf-counter { font-variant-numeric: tabular-nums; }
+    .pf-counter.is-near { color: #C8774A; font-weight: 600; }
+    .pf-pw-fields { margin-top: 18px; }
+
+    /* ---------- Hesap güvenliği ---------- */
+    .pf-list.boxed { background: var(--bg); border-radius: 12px; padding: 2px 14px; }
+    .pf-list.boxed li, .pf-list.boxed li:first-child, .pf-list.boxed li:last-child { padding: 11px 0; }
+    .pf-list.boxed .v { word-break: break-all; }
+
+    /* ---------- Hakkımda ---------- */
+    .pf-about {
+        margin: 0; padding: 14px 16px; border-radius: 12px; background: var(--bg); border-left: 3px solid var(--accent);
+        font-size: 14.5px; line-height: 1.75; color: var(--text); white-space: pre-line; word-break: break-word;
+    }
+    .pf-empty {
+        display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+        padding: 20px 16px; border: 1.5px dashed var(--border); border-radius: 12px; font-size: 13.5px; color: var(--muted);
+    }
+    .pf-empty > i { font-size: 22px; color: #C4BEEA; }
+
+    /* ---------- Profil fotoğrafı ---------- */
+    .pf-photo { display: flex; align-items: center; gap: 16px; padding: 14px; border-radius: 14px; background: var(--bg); }
+    .pf-photo .avatar { width: 72px; height: 72px; font-size: 24px; border-width: 3px; }
+    .pf-photo .tx { flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+    .pf-photo .tx strong { display: block; font-size: 13.5px; color: var(--text); margin-bottom: 1px; }
+    .pf-preview-tag { display: inline-flex; margin-top: 6px; }
+    .pf-preview-tag[hidden] { display: none; }
+
+    .pf-drop { position: relative; margin-top: 14px; }
+    .pf-file-input { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+    .pf-drop-label {
+        display: flex; align-items: center; gap: 12px; margin: 0; padding: 14px 16px; cursor: pointer;
+        border: 1.5px dashed #D6D0F3; border-radius: 14px; background: #FCFCFF;
+        transition: border-color .2s, background .2s, box-shadow .2s;
+    }
+    .pf-drop-label:hover { border-color: var(--accent); background: #F7F5FE; }
+    .pf-file-input:focus-visible + .pf-drop-label { border-color: var(--accent); background: #F7F5FE; box-shadow: 0 0 0 4px rgba(139, 127, 214, .15); }
+    .pf-drop-label .ic {
+        width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; display: grid; place-items: center;
+        background: var(--lavender); color: var(--accent-dark); font-size: 18px;
+    }
+    .pf-drop-label .t { display: block; font-size: 13.5px; font-weight: 700; color: var(--text); }
+    .pf-drop-label .d { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+    .pf-file {
+        display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 9px 10px 9px 12px;
+        border: 1px solid var(--border); border-radius: 12px; background: #fff; font-size: 13px;
+    }
+    .pf-file[hidden] { display: none; }
+    .pf-file > i { color: var(--accent); font-size: 16px; flex-shrink: 0; }
+    .pf-file .nm { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pf-file .sz { flex-shrink: 0; font-size: 12px; color: var(--muted); }
+    .pf-file.is-invalid { border-color: #F0B6C8; background: #FFF8FA; }
+    .pf-file.is-invalid .sz { color: #C2476B; font-weight: 600; }
+    .pf-file-clear {
+        flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 8px;
+        background: transparent; color: var(--muted); display: grid; place-items: center;
+    }
+    .pf-file-clear:hover { background: var(--lavender); color: var(--accent-dark); }
+
+    /* ---------- Responsive ---------- */
+    @@media (min-width: 768px) and (max-width: 1199.98px) {
+        /* Tablet: tek sütunda sağ sütundaki iki kart yan yana */
+        .pf-grid > .pf-col + .pf-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+    }
+    @@media (max-width: 767.98px) {
+        /* Mobil başlık: avatar ortada, altında isim ve bilgiler, tam genişlik buton */
+        .pf-hero .pf-cover { height: 104px; }
+        .pf-hero .pf-main { margin-top: 0; padding: 0 16px 20px; gap: 12px; align-items: center; }
+        .pf-hero .pf-avatar-wrap { margin-top: -52px; }
+        .pf-hero .pf-avatar { width: 104px; height: 104px; font-size: 34px; }
+        .pf-hero .pf-id { padding-top: 0; }
+        .pf-hero .pf-name-row h2 { font-size: 22px; }
+        .pf-hero .pf-meta { flex-direction: column; align-items: center; gap: 4px; }
+        .pf-hero .pf-hero-actions { padding-top: 4px; }
+        .pf-card-head { padding: 16px 16px 0; }
+        .pf-card-body { padding: 16px; }
+        .pf-card-foot { padding: 12px 16px; }
+        .pf-flash .pf-note { font-size: 13px; }
+        .pf-photo { padding: 12px; }
+    }
+</style>
+
+<div class="profile">
+
+    <!-- Sayfa başlığı -->
+    <div class="pf-head">
+        <h1>Profilim</h1>
+        <p>Kişisel bilgilerini, profil fotoğrafını ve hesap güvenliğini buradan yönet.</p>
+    </div>
+
+    <!-- Genel bildirimler (profil güncelleme, fotoğraf yükleme, şifre hatası) -->
+    @if (!string.IsNullOrEmpty(successMessage) || !string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="pf-flash">
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="pf-note ok" role="status" aria-live="polite">
+                    <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                    <span>@successMessage</span>
+                    <button type="button" class="pf-note-close" aria-label="Bildirimi kapat" onclick="this.parentElement.remove()">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="pf-note err" role="alert">
+                    <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+                    <span>@errorMessage</span>
+                    <button type="button" class="pf-note-close" aria-label="Bildirimi kapat" onclick="this.parentElement.remove()">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- =========================================================
+         ÜST PROFİL KARTI
+         ========================================================= -->
+    <section class="pf-hero" aria-label="Profil özeti">
+        <div class="pf-cover">
+            <span class="pf-cover-chip"><i class="bi bi-envelope-paper-heart" aria-hidden="true"></i> Mailora hesabı</span>
+        </div>
+
+        <div class="pf-main">
+            <div class="pf-avatar-wrap">
+                <div class="avatar pf-avatar av-user">
+                    <span aria-hidden="true">@initials</span>
+                    @if (hasImage)
+                    {
+                        <img src="@Model.ImageUrl" alt="@displayName profil fotoğrafı" onerror="this.remove()" />
+                    }
+                </div>
+            </div>
+
+            <div class="pf-id">
+                <div class="pf-name-row">
+                    <h2>@displayName</h2>
+                </div>
+                <div class="pf-meta">
+                    @if (!string.IsNullOrWhiteSpace(Model.Username))
+                    {
+                        <span><i class="bi bi-at" aria-hidden="true"></i>@Model.Username</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Email))
+                    {
+                        <span><i class="bi bi-envelope" aria-hidden="true"></i>@Model.Email</span>
+                    }
+                </div>
+            </div>
+
+            <div class="pf-hero-actions">
+                <button class="btn-soft primary" type="button"
+                        onclick="document.getElementById('pfName').focus();">
+                    <i class="bi bi-pencil-square" aria-hidden="true"></i> Profili Düzenle
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========================================================
+         İÇERİK KARTLARI
+         ========================================================= -->
+    <div class="pf-grid">
+
+        <!-- Sol sütun -->
+        <div class="pf-col">
+
+            <!-- Kişisel bilgiler (ProfileController.UpdateProfile) -->
+            <section class="pf-card" id="pf-info" aria-labelledby="pfInfoTitle">
+                <div class="pf-card-head">
+                    <div class="ic av-lav"><i class="bi bi-person-vcard" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="pfInfoTitle">Kişisel Bilgiler</h3>
+                        <p>Ad, soyad ve Hakkımda alanlarını düzenleyebilirsin.</p>
+                    </div>
+                </div>
+
+                <form asp-controller="Profile" asp-action="UpdateProfile" method="post">
+                    <div class="pf-card-body">
+
+                        @if (hasModelErrors)
+                        {
+                            <div class="pf-note err mt-0 mb-3" role="alert">
+                                <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+                                <div asp-validation-summary="ModelOnly"></div>
+                            </div>
+                        }
+
+                        <div class="pf-form-grid">
+
+                            <div class="pf-sub">Ad ve soyad</div>
+
+                            <div class="@FieldClass("Name")">
+                                <label for="pfName">Ad <span class="req" aria-hidden="true">*</span></label>
+                                <div class="pf-input-wrap">
+                                    <i class="bi bi-person lead" aria-hidden="true"></i>
+                                    <input asp-for="Name"
+                                           id="pfName"
+                                           class="pf-input"
+                                           type="text"
+                                           placeholder="Adınızı giriniz"
+                                           maxlength="50"
+                                           required
+                                           autocomplete="given-name"
+                                           aria-describedby="pfNameError" />
+                                </div>
+                                <span asp-validation-for="Name" class="pf-error" id="pfNameError"></span>
+                            </div>
+
+                            <div class="@FieldClass("Surname")">
+                                <label for="pfSurname">Soyad <span class="req" aria-hidden="true">*</span></label>
+                                <div class="pf-input-wrap">
+                                    <i class="bi bi-person lead" aria-hidden="true"></i>
+                                    <input asp-for="Surname"
+                                           id="pfSurname"
+                                           class="pf-input"
+                                           type="text"
+                                           placeholder="Soyadınızı giriniz"
+                                           maxlength="50"
+                                           required
+                                           autocomplete="family-name"
+                                           aria-describedby="pfSurnameError" />
+                                </div>
+                                <span asp-validation-for="Surname" class="pf-error" id="pfSurnameError"></span>
+                            </div>
+
+                            <div class="pf-sub">Hesap bilgileri</div>
+
+                            <div class="pf-field">
+                                <label for="pfUsername">Kullanıcı Adı</label>
+                                <div class="pf-input-wrap">
+                                    <i class="bi bi-at lead" aria-hidden="true"></i>
+                                    <input class="pf-input"
+                                           id="pfUsername"
+                                           type="text"
+                                           value="@Model.Username"
+                                           aria-describedby="pfUsernameHint"
+                                           readonly />
+                                    <i class="bi bi-lock-fill lock" aria-hidden="true"></i>
+                                </div>
+                                <div class="pf-hint" id="pfUsernameHint"><span>Kullanıcı adı değiştirilemez.</span></div>
+                            </div>
+
+                            <div class="pf-field">
+                                <label for="pfEmail">E-posta Adresi</label>
+                                <div class="pf-input-wrap">
+                                    <i class="bi bi-envelope lead" aria-hidden="true"></i>
+                                    <input class="pf-input"
+                                           id="pfEmail"
+                                           type="email"
+                                           value="@Model.Email"
+                                           aria-describedby="pfEmailHint"
+                                           readonly />
+                                    <i class="bi bi-lock-fill lock" aria-hidden="true"></i>
+                                </div>
+                                <div class="pf-hint" id="pfEmailHint"><span>E-posta adresi değiştirilemez.</span></div>
+                            </div>
+
+                            <div class="pf-sub">Hakkımda</div>
+
+                            <div class="@FieldClass("Description", "pf-field span-2")">
+                                <label for="pfDescription">Kısa açıklama</label>
+                                <textarea asp-for="Description"
+                                          class="pf-input"
+                                          id="pfDescription"
+                                          rows="4"
+                                          maxlength="250"
+                                          aria-describedby="pfDescriptionHint pfDescriptionError"
+                                          placeholder="Kendinden kısaca bahset…"></textarea>
+                                <div class="pf-hint" id="pfDescriptionHint">
+                                    <span>Profilinde ve Hakkımda kartında görünür.</span>
+                                    <span class="pf-counter" id="pfDescCount" aria-live="polite">@(Model.Description?.Length ?? 0)/250</span>
+                                </div>
+                                <span asp-validation-for="Description" class="pf-error" id="pfDescriptionError"></span>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="pf-card-foot">
+                        <span class="pf-lastpw">
+                            <i class="bi bi-info-circle" aria-hidden="true"></i>
+                            <span><span class="req" aria-hidden="true">*</span> ile işaretli alanlar zorunludur.</span>
+                        </span>
+                        <button class="btn-send" type="submit">
+                            <span class="lbl"><i class="bi bi-check2" aria-hidden="true"></i> Değişiklikleri Kaydet</span>
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Hesap güvenliği & şifre değiştirme (ProfileController.ChangePassword) -->
+            <section class="pf-card" id="pf-security" aria-labelledby="pfSecTitle">
+                <div class="pf-card-head">
+                    <div class="ic av-mint"><i class="bi bi-shield-lock" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="pfSecTitle">Hesap Güvenliği</h3>
+                        <p>Giriş bilgilerin ve şifre değiştirme.</p>
+                    </div>
+                </div>
+
+                <form asp-controller="Profile" asp-action="ChangePassword" method="post">
+                    <div class="pf-card-body">
+
+                        @if (!string.IsNullOrEmpty(passwordSuccessMessage))
+                        {
+                            <div class="pf-note ok mt-0 mb-3" role="status" aria-live="polite">
+                                <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                                <div>
+                                    <strong>@passwordSuccessMessage</strong>
+                                    @if (!string.IsNullOrEmpty(passwordChangedAt))
+                                    {
+                                        <span class="when">Değiştirilme zamanı: @passwordChangedAt</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <ul class="pf-list boxed">
+                            <li>
+                                <span class="k"><i class="bi bi-envelope" aria-hidden="true"></i> Giriş e-postası</span>
+                                <span class="v">@(string.IsNullOrWhiteSpace(Model.Email) ? "—" : Model.Email)</span>
+                            </li>
+                            <li>
+                                <span class="k"><i class="bi bi-key" aria-hidden="true"></i> Şifre</span>
+                                <span class="v">••••••••</span>
+                            </li>
+                        </ul>
+
+                        <fieldset class="pf-pw-fields">
+                            <legend class="visually-hidden">Şifre değiştir</legend>
+                            <div class="pf-form-grid">
+                                <div class="pf-field span-2">
+                                    <label for="pfCurrentPw">Mevcut Şifre</label>
+                                    <div class="pf-input-wrap">
+                                        <i class="bi bi-lock lead" aria-hidden="true"></i>
+                                        <input class="pf-input" id="pfCurrentPw" name="CurrentPassword" type="password" placeholder="Mevcut şifren" autocomplete="current-password" required />
+                                    </div>
+                                </div>
+                                <div class="pf-field">
+                                    <label for="pfNewPw">Yeni Şifre</label>
+                                    <div class="pf-input-wrap">
+                                        <i class="bi bi-shield-lock lead" aria-hidden="true"></i>
+                                        <input class="pf-input" id="pfNewPw" name="NewPassword" type="password" placeholder="Yeni şifre" autocomplete="new-password" required aria-describedby="pfPwRules" />
+                                    </div>
+                                </div>
+                                <div class="pf-field">
+                                    <label for="pfConfirmPw">Yeni Şifre (Tekrar)</label>
+                                    <div class="pf-input-wrap">
+                                        <i class="bi bi-shield-check lead" aria-hidden="true"></i>
+                                        <input class="pf-input" id="pfConfirmPw" name="ConfirmPassword" type="password" placeholder="Yeni şifreyi tekrar gir" autocomplete="new-password" required />
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <div class="pf-note" id="pfPwRules">
+                            <i class="bi bi-info-circle" aria-hidden="true"></i>
+                            <span>Yeni şifren en az 6 karakter olmalı; büyük harf, küçük harf, rakam ve özel karakter içermelidir.</span>
+                        </div>
+                    </div>
+
+                    <div class="pf-card-foot">
+                        <button class="btn-send" type="submit">
+                            <span class="lbl"><i class="bi bi-key" aria-hidden="true"></i> Şifreyi Güncelle</span>
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+
+        <!-- Sağ sütun -->
+        <div class="pf-col">
+
+            <!-- Hakkımda önizlemesi — kaydedilmiş açıklamayı gösterir -->
+            <section class="pf-card" aria-labelledby="pfAboutTitle">
+                <div class="pf-card-head">
+                    <div class="ic av-peach"><i class="bi bi-chat-quote" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="pfAboutTitle">Hakkımda</h3>
+                        <p>Profilinde görünen kısa açıklama.</p>
+                    </div>
+                </div>
+                <div class="pf-card-body">
+                    @if (hasDescription)
+                    {
+                        <p class="pf-about">@Model.Description</p>
+                    }
+                    else
+                    {
+                        <div class="pf-empty">
+                            <i class="bi bi-chat-square-dots" aria-hidden="true"></i>
+                            <span>Henüz bir açıklama eklenmemiş.</span>
+                            <button type="button" class="link-btn" onclick="document.getElementById('pfDescription').focus();">Açıklama ekle</button>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <!-- Profil fotoğrafı (ProfileController.UploadProfilePhoto) -->
+            <section class="pf-card" id="pf-photo" aria-labelledby="pfPhotoTitle">
+                <div class="pf-card-head">
+                    <div class="ic av-blue"><i class="bi bi-image" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="pfPhotoTitle">Profil Fotoğrafı</h3>
+                        <p>Mesajlarında ve profilinde görünen fotoğraf.</p>
+                    </div>
+                </div>
+
+                <form asp-controller="Profile"
+                      asp-action="UploadProfilePhoto"
+                      method="post"
+                      enctype="multipart/form-data">
+
+                    <div class="pf-card-body">
+                        <div class="pf-photo">
+                            <div class="avatar pf-avatar av-user" id="pfPhotoPreview">
+                                <span aria-hidden="true">@initials</span>
+                                @if (hasImage)
+                                {
+                                    <img src="@Model.ImageUrl"
+                                         alt="Mevcut profil fotoğrafı"
+                                         onerror="this.remove()" />
+                                }
+                            </div>
+
+                            <div class="tx">
+                                @if (hasImage)
+                                {
+                                    <strong>Mevcut fotoğraf</strong>
+                                    <span>Yeni bir fotoğraf yükleyerek değiştirebilirsin.</span>
+                                }
+                                else
+                                {
+                                    <strong>Fotoğraf eklenmemiş</strong>
+                                    <span>Şu an baş harflerin gösteriliyor.</span>
+                                }
+                                <span class="pf-badge warn pf-preview-tag" id="pfPreviewTag" hidden>Önizleme · henüz kaydedilmedi</span>
+                            </div>
+                        </div>
+
+                        <div class="pf-drop">
+                            <input type="file"
+                                   id="profilePhoto"
+                                   name="Photo"
+                                   class="pf-file-input"
+                                   accept=".jpg,.jpeg,.png,.webp"
+                                   aria-describedby="pfPhotoHint"
+                                   required />
+                            <label for="profilePhoto" class="pf-drop-label">
+                                <span class="ic"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i></span>
+                                <span>
+                                    <span class="t">Fotoğraf seç</span>
+                                    <span class="d" id="pfPhotoHint">JPG, JPEG, PNG veya WEBP · en fazla 2 MB</span>
+                                </span>
+                            </label>
+
+                            <div class="pf-file" id="pfFileInfo" hidden>
+                                <i class="bi bi-file-earmark-image" aria-hidden="true"></i>
+                                <span class="nm" id="pfFileName"></span>
+                                <span class="sz" id="pfFileSize"></span>
+                                <button type="button" class="pf-file-clear" id="pfFileClear" aria-label="Seçilen dosyayı kaldır">
+                                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pf-card-foot">
+                        <button class="btn-send" type="submit">
+                            <span class="lbl"><i class="bi bi-upload" aria-hidden="true"></i> Fotoğrafı Yükle</span>
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        /* Profilim — yalnızca bu sayfaya ait küçük arayüz yardımcıları (form gönderimini değiştirmez) */
+        (function () {
+            /* Hakkımda karakter sayacı */
+            var desc = document.getElementById('pfDescription');
+            var counter = document.getElementById('pfDescCount');
+            if (desc && counter) {
+                var max = parseInt(desc.getAttribute('maxlength'), 10) || 250;
+                var updateCount = function () {
+                    var n = desc.value.length;
+                    counter.textContent = n + '/' + max;
+                    counter.classList.toggle('is-near', n >= max * 0.9);
+                };
+                desc.addEventListener('input', updateCount);
+                updateCount();
+            }
+
+            /* Fotoğraf seçimi: dosya adı, boyut ve önizleme */
+            var input = document.getElementById('profilePhoto');
+            var info = document.getElementById('pfFileInfo');
+            var nameEl = document.getElementById('pfFileName');
+            var sizeEl = document.getElementById('pfFileSize');
+            var clearBtn = document.getElementById('pfFileClear');
+            var preview = document.getElementById('pfPhotoPreview');
+            var tag = document.getElementById('pfPreviewTag');
+            if (!input || !info || !preview) return;
+
+            var MAX_SIZE = 2 * 1024 * 1024;     // ProfileController.MaxPhotoSize ile aynı
+            var originalImg = preview.querySelector('img');
+            var originalSrc = originalImg ? originalImg.getAttribute('src') : null;
+            var objectUrl = null;
+
+            function formatSize(bytes) {
+                if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+                return (bytes / 1024 / 1024).toFixed(1).replace('.', ',') + ' MB';
+            }
+
+            function setPreview(src) {
+                var img = preview.querySelector('img');
+                if (!src) { if (img) img.remove(); return; }
+                if (!img) {
+                    img = document.createElement('img');
+                    img.onerror = function () { img.remove(); };
+                    preview.appendChild(img);
+                }
+                img.alt = src === originalSrc ? 'Mevcut profil fotoğrafı' : 'Seçilen fotoğrafın önizlemesi';
+                img.src = src;
+            }
+
+            function releaseUrl() {
+                if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+            }
+
+            function reset() {
+                input.value = '';
+                info.hidden = true;
+                info.classList.remove('is-invalid');
+                if (tag) tag.hidden = true;
+                releaseUrl();
+                setPreview(originalSrc);
+            }
+
+            input.addEventListener('change', function () {
+                var file = input.files && input.files[0];
+                if (!file) { reset(); return; }
+
+                var tooBig = file.size > MAX_SIZE;
+                nameEl.textContent = file.name;
+                nameEl.title = file.name;
+                sizeEl.textContent = tooBig ? formatSize(file.size) + ' · 2 MB sınırını aşıyor' : formatSize(file.size);
+                info.classList.toggle('is-invalid', tooBig);
+                info.hidden = false;
+
+                releaseUrl();
+                if (file.type && file.type.indexOf('image/') === 0) {
+                    objectUrl = URL.createObjectURL(file);
+                    setPreview(objectUrl);
+                    if (tag) tag.hidden = false;
+                }
+            });
+
+            if (clearBtn) clearBtn.addEventListener('click', function () { reset(); input.focus(); });
+        })();
+    </script>
+}

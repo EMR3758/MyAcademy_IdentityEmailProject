@@ -1,19 +1,183 @@
 ﻿@model UserLoginViewModel
 @{
     Layout = null;
+
+    // Alan bazlı hata durumları (input'u kırmızı çerçeveyle işaretlemek için)
+    var usernameInvalid = ViewData.ModelState["Username"]?.Errors.Count > 0;
+    var passwordInvalid = ViewData.ModelState["Password"]?.Errors.Count > 0;
+
+    // Controller'ın ModelState.AddModelError(string.Empty, ...) ile eklediği genel hatalar
+    var hasModelErrors = ViewData.ModelState[string.Empty]?.Errors.Count > 0;
+
+    // RegisterController.VerifyEmail başarılı olduğunda TempData ile gelen mesaj
+    var successMessage = TempData["SuccessMessage"] as string;
 }
 
-<link href="~/lib/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" />
+<!DOCTYPE html>
+<html lang="tr">
+@* SignUp ile aynı <head>: Bootstrap, Bootstrap Icons, Plus Jakarta Sans ve Mailora tema CSS'i *@
+@await Component.InvokeAsync("_RegisterStyleComponentPartial")
 
-<div class="container">
-    <br /><br />
-    <form method="post">
-        <label>Kullanıcı adınız</label>
-        <input type="text" asp-for="Username" class="form-control" />
-        <br />
-        <label>Şifreniz</label>
-        <input type="text" asp-for="Password" class="form-control" />
-        <br />
-        <button class="btn btn-primary">Giriş Yap</button>
-    </form>
-</div>
+<body>
+
+    <div class="auth-bg" aria-hidden="true"><span class="g1"></span><span class="g2"></span><span class="g3"></span></div>
+
+    <main class="auth-page">
+        <div class="auth-card">
+
+            @await Component.InvokeAsync("_RegisterBrandComponentPartial")
+
+            <!-- Sağ: giriş formu -->
+            <section class="auth-form-wrap">
+                <style>
+                    /* Yalnızca giriş sayfasına özgü küçük ekler; geri kalan her şey ortak tema CSS'inden gelir */
+                    .notice {
+                        display: flex;
+                        gap: 10px;
+                        margin: 0 0 18px;
+                        padding: 12px 14px;
+                        border-radius: 12px;
+                        font-size: 13.5px;
+                        line-height: 1.5;
+                        animation: cardIn .35s var(--ease);
+                    }
+
+                        .notice > .bi {
+                            font-size: 18px;
+                            line-height: 1.2;
+                            flex-shrink: 0;
+                        }
+
+                        .notice ul {
+                            margin: 0;
+                            padding-left: 18px;
+                        }
+
+                            .notice ul:has(> li:only-child) {
+                                padding-left: 0;
+                                list-style: none;
+                            }
+
+                    .notice-error {
+                        background: var(--rose);
+                        border: 1px solid rgba(194, 71, 107, .25);
+                        color: var(--danger);
+                    }
+
+                    .notice-success {
+                        background: var(--mint);
+                        border: 1px solid rgba(62, 154, 119, .25);
+                        color: var(--success);
+                    }
+
+                    .field .msg:not(:empty) {
+                        color: var(--danger);
+                    }
+                </style>
+
+                <div class="form-head">
+                    <h1>Tekrar Hoş Geldiniz</h1>
+                    <p>Mailora hesabınıza giriş yapın ve mesajlarınıza kaldığınız yerden devam edin.</p>
+                    <div class="switch-link">Hesabınız yok mu? <a asp-controller="Register" asp-action="SignUp">Kayıt Ol</a></div>
+                </div>
+
+                <form asp-controller="Login" asp-action="SignIn" method="post" id="loginForm">
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="notice notice-success" role="status">
+                            <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                            <div>@successMessage</div>
+                        </div>
+                    }
+
+                    @if (hasModelErrors)
+                    {
+                        <div class="notice notice-error" role="alert">
+                            <i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i>
+                            <div asp-validation-summary="ModelOnly"></div>
+                        </div>
+                    }
+
+                    <div class="form-grid">
+
+                        <div class="field span-2 @(usernameInvalid ? "is-invalid" : "")">
+                            <label asp-for="Username">Kullanıcı Adı</label>
+                            <div class="input-wrap">
+                                <i class="bi bi-at lead"></i>
+                                <input class="a-input" asp-for="Username" type="text" placeholder="Kullanıcı adınız"
+                                       autocomplete="username" spellcheck="false" autocapitalize="none" required>
+                                <i class="bi bi-exclamation-circle-fill state err"></i>
+                            </div>
+                            <span class="msg" asp-validation-for="Username"></span>
+                        </div>
+
+                        <div class="field span-2 @(passwordInvalid ? "is-invalid" : "")">
+                            <label asp-for="Password">Şifre</label>
+                            <div class="input-wrap">
+                                <i class="bi bi-lock lead"></i>
+                                <input class="a-input has-eye" asp-for="Password" type="password" placeholder="Şifreniz"
+                                       autocomplete="current-password" required>
+                                <i class="bi bi-exclamation-circle-fill state err"></i>
+                                <button type="button" class="eye-btn" id="togglePassword"
+                                        aria-label="Şifreyi göster" title="Şifreyi göster" aria-pressed="false">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                            <div class="caps" id="capsHint"><i class="bi bi-capslock"></i> Caps Lock açık</div>
+                            <span class="msg" asp-validation-for="Password"></span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary-x" id="loginBtn">
+                        <span class="lbl">Giriş Yap</span><i class="bi bi-arrow-right"></i>
+                    </button>
+
+                    <div class="secure-note"><i class="bi bi-shield-check"></i> Bağlantınız şifrelenerek güvenle korunur.</div>
+                    <div class="form-foot">Hesabınız yok mu? <a asp-controller="Register" asp-action="SignUp">Kayıt Ol</a></div>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        (() => {
+            // Ortak <head> bileşeni "Kayıt Ol" başlığını taşıdığı için sekme başlığı burada düzeltilir
+            document.title = 'Giriş Yap · Mailora';
+
+            const pwd = document.getElementById('@Html.IdFor(m => m.Password)');
+            const eye = document.getElementById('togglePassword');
+            const caps = document.getElementById('capsHint');
+            const form = document.getElementById('loginForm');
+            const btn = document.getElementById('loginBtn');
+
+            // Şifreyi göster / gizle
+            eye.addEventListener('click', () => {
+                const show = pwd.type === 'password';
+                pwd.type = show ? 'text' : 'password';
+                const label = show ? 'Şifreyi gizle' : 'Şifreyi göster';
+                eye.setAttribute('aria-label', label);
+                eye.title = label;
+                eye.setAttribute('aria-pressed', String(show));
+                eye.firstElementChild.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+                pwd.focus();
+            });
+
+            // Caps Lock uyarısı
+            const checkCaps = e => caps.classList.toggle('show', !!e.getModifierState && e.getModifierState('CapsLock'));
+            pwd.addEventListener('keydown', checkCaps);
+            pwd.addEventListener('keyup', checkCaps);
+            pwd.addEventListener('blur', () => caps.classList.remove('show'));
+
+            // Gönderim sırasında çift tıklamayı önle (submit yalnızca tarayıcı doğrulaması geçince tetiklenir)
+            const btnHtml = btn.innerHTML;
+            window.addEventListener('pageshow', () => { btn.disabled = false; btn.innerHTML = btnHtml; });   // "geri" ile dönülünce
+            form.addEventListener('submit', () => {
+                pwd.type = 'password';
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-sm"></span><span class="lbl">Giriş yapılıyor…</span>';
+            });
+        })();
+    </script>
+</body>
+</html>
