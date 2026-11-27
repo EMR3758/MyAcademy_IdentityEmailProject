@@ -15,7 +15,6 @@ namespace MyAcademy_IdentityEmailProject.Migrations
     [Migration("20261125095558_AddMessageFavorites")]
     partial class AddMessageFavorites
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

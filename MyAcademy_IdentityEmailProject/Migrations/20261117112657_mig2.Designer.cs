@@ -15,7 +15,6 @@ namespace MyAcademy_IdentityEmailProject.Migrations
     [Migration("20261117112657_mig2")]
     partial class mig2
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

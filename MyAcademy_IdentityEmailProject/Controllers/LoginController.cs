@@ -30,9 +30,10 @@ namespace MyAcademy_IdentityEmailProject.Controllers
                 return View(userLoginViewModel);
             }
             var user = await _userManager.FindByNameAsync(userLoginViewModel.Username);
-            if (user == null) 
+            if (user == null)
             {
                 ModelState.AddModelError(string.Empty, "Kullanıcı adı veya şifre hatalı");
+                return View(userLoginViewModel);
             }
             if (!user.EmailConfirmed)
             {
@@ -44,9 +45,9 @@ namespace MyAcademy_IdentityEmailProject.Controllers
             }
 
             var result = await _signInManager.PasswordSignInAsync(userLoginViewModel.Username, userLoginViewModel.Password, false, false);
-            if (result.Succeeded) 
+            if (result.Succeeded)
             {
-                return RedirectToAction("Inbox", "Message");
+                return RedirectToAction("Dashboard", "Dashboard");
             }
             ModelState.AddModelError(string.Empty, "Kullanıcı adı veya şifre hatalı");
             return View(userLoginViewModel);

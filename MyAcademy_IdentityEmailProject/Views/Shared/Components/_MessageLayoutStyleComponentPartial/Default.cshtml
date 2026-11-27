@@ -3,7 +3,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mailora Yönetim Paneli</title>
 
-  <!-- Bootstrap 5 + Bootstrap Icons + Font (CDN) -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,9 +11,6 @@
 
 
   <style>
-    /* =========================================================
-       1. TASARIM DEĞİŞKENLERİ (ileride wwwroot/css/site.css)
-       ========================================================= */
     :root {
       --bg: #F8F9FD;
       --sidebar: #F1F0FB;
@@ -61,9 +57,6 @@
     ::-webkit-scrollbar-thumb:hover { background: #C9C2EC; background-clip: padding-box; border: 2px solid transparent; }
     ::-webkit-scrollbar-track { background: transparent; }
 
-    /* =========================================================
-       2. SHARED SIDEBAR
-       ========================================================= */
     .app-sidebar {
       position: fixed;
       inset: 0 auto 0 0;
@@ -186,9 +179,6 @@
       z-index: 1035; opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s;
     }
 
-    /* =========================================================
-       3. SHARED NAVBAR
-       ========================================================= */
     .app-navbar {
       position: fixed;
       top: 0; right: 0; left: var(--sidebar-w);
@@ -277,9 +267,6 @@
     .notif-item .nt { font-size: 13px; font-weight: 600; }
     .notif-item .nd { font-size: 12px; color: var(--muted); }
 
-    /* =========================================================
-       4. AVATARS & ORTAK BİLEŞENLER
-       ========================================================= */
     .avatar {
       width: 40px; height: 40px; border-radius: 50%;
       display: inline-grid; place-items: center; flex-shrink: 0;
@@ -306,9 +293,6 @@
     .tag-fatura { background: var(--peach); color: #C8774A; }
     .tag-sistem { background: var(--blue); color: #4A7CC2; }
 
-    /* =========================================================
-       5. DYNAMIC MAIN CONTENT KAPSAYICISI
-       ========================================================= */
     .app-main {
       margin-left: var(--sidebar-w);
       padding: calc(var(--navbar-h) + 20px) 28px 24px;
@@ -317,9 +301,6 @@
     .page-enter { animation: pageIn .35s var(--ease); }
     @@keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-    /* =========================================================
-       6. GELEN KUTUSU (Inbox View)
-       ========================================================= */
     .inbox {
       display: flex; flex-direction: column;
       height: calc(100vh - var(--navbar-h) - 44px);
@@ -336,7 +317,6 @@
       overflow: hidden;
     }
 
-    /* --- Mesaj listesi --- */
     .list-head { padding: 20px 20px 12px; }
     .list-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
     .list-title h1 { font-size: 21px; font-weight: 800; letter-spacing: -.4px; margin: 0; }
@@ -408,7 +388,6 @@
 
     .msg-list { flex: 1; overflow-y: auto; padding: 6px 8px; min-height: 0; }
 
-    /* Satır: masaüstünde tek satır (Gmail / Outlook tarzı), mobilde kart görünümü */
     .msg-item {
       display: grid;
       grid-template-columns: auto auto minmax(140px, 200px) minmax(0, 1fr) auto 64px;
@@ -473,7 +452,6 @@
     }
     .empty-list h6 { color: var(--text); font-weight: 700; margin-bottom: 4px; }
 
-    /* --- Mesaj detay sayfası (ayrı sayfa: #message/{id}) --- */
     .msg-page { max-width: 1400px; margin: 0 auto; }
     .mp-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
     .mp-back { background: #fff; }
@@ -579,9 +557,6 @@
     .quick-reply button:hover { background: var(--accent-dark); }
 
 
-    /* =========================================================
-       6b. YENİ MESAJ (Compose View)
-       ========================================================= */
     .compose { max-width: 1180px; margin: 0 auto; }
 
     .cmp-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
@@ -601,7 +576,6 @@
 
     .cmp-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); position: relative; }
 
-    /* Alan satırları */
     .cmp-row {
       display: flex; align-items: center; flex-wrap: wrap; gap: 0 12px;
       padding: 4px 22px; min-height: 56px; position: relative;
@@ -622,7 +596,6 @@
     .cmp-from span:last-child { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
     .avatar.xs { width: 22px; height: 22px; font-size: 9.5px; }
 
-    /* Alıcı (chip) alanı */
     .rf-box { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 9px 0; cursor: text; }
     .rf-input { flex: 1; min-width: 140px; height: 30px; border: 0; outline: 0; background: transparent; font-size: 14px; color: var(--text); }
     .rf-input::placeholder { color: #A6A9B8; }
@@ -673,7 +646,6 @@
     }
     .cmp-subject::placeholder { color: #A6A9B8; font-weight: 500; }
 
-    /* Rich text araç çubuğu */
     .cmp-toolbar {
       display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
       padding: 9px 16px; background: #FCFCFF; border-bottom: 1px solid var(--border);
@@ -728,7 +700,6 @@
     .tb-link .unl { border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; margin-top: 8px; padding: 2px; }
     .tb-link .unl:hover { color: #C2476B; }
 
-    /* Editör */
     .cmp-editor-wrap { position: relative; transition: background .2s; }
     .cmp-editor-wrap.has-error { background: #FFF8FA; }
     .cmp-editor {
@@ -750,7 +721,6 @@
     }
     .cmp-editor-wrap .cmp-err { position: absolute; left: 26px; bottom: 14px; padding: 0; }
 
-    /* Dosya ekleri */
     .cmp-attach { padding: 18px 22px 20px; border-top: 1px solid var(--border); }
     .cmp-drop {
       display: flex; align-items: center; gap: 16px;
@@ -790,7 +760,6 @@
     .cf-meta { font-size: 11.5px; color: var(--muted); }
     .cf-remove:hover { background: var(--rose); color: #C2476B; }
 
-    /* Alt işlem çubuğu */
     .cmp-actions {
       display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
       padding: 16px 22px; border-top: 1px solid var(--border);
@@ -815,7 +784,6 @@
     .cmp-hint { margin-left: auto; font-size: 12px; color: var(--muted); }
     .kbd-s { font-size: 11px; font-weight: 600; background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; }
 
-    /* Onay penceresi */
     .cmp-dialog {
       position: fixed; inset: 0; z-index: 1060; display: grid; place-items: center; padding: 16px;
       background: rgba(48, 51, 72, .35); backdrop-filter: blur(3px); animation: fadeIn .2s;
@@ -862,7 +830,6 @@
       .cmp-hint { display: none; }
     }
 
-    /* Yeni Mesaj: varsayılan imza bloğu (Profilim > Hesap Tercihleri) */
     .cmp-editor-wrap.has-sig .cmp-editor { min-height: 250px; padding-bottom: 16px; }
     .cmp-signature { margin: 0 26px; padding: 12px 0 50px; border-top: 1px dashed var(--border); }
     .cmp-signature .sig-head { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #A6A9B8; margin-bottom: 6px; }
@@ -870,9 +837,6 @@
     .cmp-signature .sig-body { white-space: pre-line; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
     @@media (max-width: 767.98px) { .cmp-signature { margin: 0 16px; } }
 
-    /* =========================================================
-       6c. DARALTILABİLİR SIDEBAR (masaüstü)
-       ========================================================= */
     .app-sidebar { transition: transform .3s var(--ease), width .28s var(--ease), padding .28s var(--ease); }
     .app-navbar { transition: left .28s var(--ease); }
     .app-main { transition: margin-left .28s var(--ease); }
@@ -897,7 +861,6 @@
       body.sidebar-collapsed .storage-card .top { margin: 0; }
       body.sidebar-collapsed .storage-card .top > div:last-child, body.sidebar-collapsed .storage-bar { display: none; }
 
-      /* Daraltılmış menüde ipuçları */
       body.sidebar-collapsed .app-sidebar [data-tip] { position: relative; }
       body.sidebar-collapsed .app-sidebar [data-tip]:hover::after {
         content: attr(data-tip);
@@ -908,9 +871,6 @@
       }
     }
 
-    /* =========================================================
-       6d. PROFİLİM (Profile View)
-       ========================================================= */
     .profile { max-width: 1240px; margin: 0 auto; }
     .pf-head { margin-bottom: 18px; }
     .pf-head h1 { font-size: 24px; font-weight: 800; letter-spacing: -.5px; margin: 0; }
@@ -918,7 +878,6 @@
 
     .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 
-    /* Üst profil kartı */
     .pf-hero { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 20px; }
     .pf-cover {
       height: 150px; position: relative; overflow: hidden;
@@ -956,7 +915,6 @@
     .pf-meta i { color: var(--accent); }
     .pf-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; padding-bottom: 2px; }
 
-    /* İstatistik kartları */
     .pf-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
     .pf-stat {
       background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid #F1F0F8;
@@ -969,7 +927,6 @@
     .pf-stat .lbl { font-size: 13px; font-weight: 600; color: #5D6075; margin-top: 3px; }
     .pf-stat .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
-    /* Kartlar */
     .pf-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; }
     .pf-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
     .pf-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); }
@@ -985,7 +942,6 @@
     }
     .pf-card-foot .btn-send { padding: 11px 20px; font-size: 14px; }
 
-    /* Form alanları */
     .pf-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; }
     .pf-field.span-2 { grid-column: 1 / -1; }
     .pf-field label { display: block; font-size: 12.5px; font-weight: 700; color: #5D6075; margin-bottom: 7px; }
@@ -1020,7 +976,6 @@
     .btn-soft:disabled { opacity: .5; pointer-events: none; }
     .pf-lastpw { margin-right: auto; font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
 
-    /* Şifre gücü & kurallar */
     .pf-strength { display: flex; gap: 6px; margin-top: 10px; }
     .pf-strength span { flex: 1; height: 5px; border-radius: 5px; background: #F1F0FB; transition: background .25s; }
     .pf-strength[data-level="1"] span:nth-child(-n+1) { background: #E07597; }
@@ -1037,7 +992,6 @@
     .pf-note { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-top: 16px; background: var(--blue); color: #4A7CC2; border-radius: 12px; font-size: 12.5px; line-height: 1.5; }
     .pf-stack { display: flex; flex-direction: column; gap: 16px; }
 
-    /* Hesap durumu listesi */
     .pf-list { list-style: none; margin: 0; padding: 0; }
     .pf-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
     .pf-list li:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -1052,7 +1006,6 @@
     .link-btn { border: 0; background: transparent; color: var(--accent-dark); font-weight: 700; font-size: 12.5px; padding: 0; }
     .link-btn:hover { text-decoration: underline; }
 
-    /* Tercihler & toggle switch */
     .pf-pref { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
     .pf-pref:first-child { padding-top: 0; }
     .pf-pref .ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-size: 16px; flex-shrink: 0; }
@@ -1106,12 +1059,8 @@
       .pf-rules { grid-template-columns: 1fr; }
     }
 
-    /* =========================================================
-       6e. DASHBOARD (Genel Bakış)
-       ========================================================= */
     .dashboard { max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 
-    /* Karşılama */
     .db-welcome {
       position: relative; overflow: hidden;
       display: flex; align-items: center; gap: 24px;
@@ -1152,7 +1101,6 @@
     button.db-chip:hover { background: #fff; }
     .db-chip.ok { color: #3E9A77; }
 
-    /* CSS e-posta illüstrasyonu */
     .db-illus { position: relative; z-index: 1; width: 210px; height: 140px; flex-shrink: 0; }
     .db-illus .env { position: absolute; left: 40px; bottom: 8px; width: 132px; height: 86px; }
     .db-illus .env::before { content: ""; position: absolute; inset: 0; border-radius: 14px; background: linear-gradient(160deg, #B9B0F2, #8B7FD6); }
@@ -1183,7 +1131,6 @@
     .db-illus .b3 { width: 14px; height: 14px; left: 18px; bottom: 30px; background: #fff; opacity: .8; animation-delay: 1.4s; }
     @@keyframes letterUp { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
-    /* İstatistik kartları */
     .db-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
     .db-stat {
       --tint: var(--lavender); --ink: #6F62C6;
@@ -1208,7 +1155,6 @@
     .t-mint  { --tint: var(--mint) !important; --ink: #3E9A77 !important; }
     .t-peach { --tint: var(--peach) !important; --ink: #C8774A !important; }
 
-    /* Kartlar & satırlar */
     .db-row { display: grid; gap: 20px; align-items: start; }
     .db-row.charts { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: stretch; }
     .db-row.bottom { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr); }
@@ -1240,7 +1186,6 @@
     .db-chart-empty { height: 100%; display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 13px; background: var(--bg); border-radius: 12px; }
     .db-chart-empty i { display: block; font-size: 26px; color: var(--accent); margin-bottom: 6px; }
 
-    /* Dağılım (doughnut) */
     .db-dist { display: flex; flex-direction: column; }
     .db-dist-body { display: flex; flex-direction: column; align-items: center; gap: 16px; flex: 1; }
     .db-donut-box { position: relative; width: 186px; height: 186px; flex-shrink: 0; }
@@ -1260,7 +1205,6 @@
     .db-starred-note > i { color: #F2B84B; font-size: 15px; }
     .db-starred-note .link-btn { margin-left: auto; color: #8A6A0F; white-space: nowrap; }
 
-    /* Son gelen mesajlar */
     .db-msgs { display: flex; flex-direction: column; gap: 2px; margin: 0 -10px; }
     .db-msg {
       display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
@@ -1276,7 +1220,6 @@
     .db-msg.unread .nm, .db-msg.unread .sj { font-weight: 700; color: var(--text); }
     .db-msg.unread .tm { color: var(--accent-dark); font-weight: 700; }
 
-    /* En sık iletişim kurulanlar */
     .db-contact { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
     .db-contact:first-child { padding-top: 0; }
     .db-contact:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -1294,7 +1237,6 @@
     }
     .db-send:hover { background: var(--accent); color: #fff; transform: translateY(-1px); }
 
-    /* Hızlı işlemler */
     .db-quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .db-tile {
       display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
@@ -1344,9 +1286,6 @@
       .db-stat .trend { display: none; }
     }
 
-    /* =========================================================
-       7. PLACEHOLDER (Henüz hazırlanmamış sayfalar)
-       ========================================================= */
     .placeholder-wrap {
       min-height: calc(100vh - var(--navbar-h) - 44px);
       display: grid; place-items: center;
@@ -1377,9 +1316,6 @@
     .ph-progress span { display: block; height: 100%; width: 35%; border-radius: 6px; background: linear-gradient(90deg, #B4AAF0, var(--accent)); animation: load 2.4s ease-in-out infinite; }
     @@keyframes load { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
 
-    /* =========================================================
-       8. TOAST
-       ========================================================= */
     .toast-stack { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
     .m-toast {
       pointer-events: auto;
@@ -1396,9 +1332,6 @@
     @@keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
     @@keyframes toastOut { to { opacity: 0; transform: translateY(12px); } }
 
-    /* =========================================================
-       9. RESPONSIVE
-       ========================================================= */
     @@media (max-width: 1280px) {
       .msg-item { grid-template-columns: auto auto minmax(120px, 160px) minmax(0, 1fr) auto 60px; }
     }
@@ -1408,7 +1341,6 @@
       .mp-card { padding: 26px 28px 28px; }
     }
 
-    /* Tablet: Sidebar açılır menüye dönüşür */
     @@media (max-width: 991.98px) {
       .app-sidebar { transform: translateX(-100%); box-shadow: var(--shadow-lg); }
       body.sidebar-open .app-sidebar { transform: none; }
@@ -1423,7 +1355,6 @@
       .global-search input { padding-right: 16px; }
     }
 
-    /* Mobil: Liste ve önizleme tek sütunda, geçişli */
     @@media (max-width: 767.98px) {
       :root { --navbar-h: 64px; }
       .app-navbar { gap: 10px; padding: 0 12px; }
@@ -1434,7 +1365,6 @@
       .list-tools .list-search { flex-basis: 100%; max-width: none; }
       .list-tools .filter-chips { flex-basis: 100%; }
       .bulk-bar { padding-left: 14px; }
-      /* Mesaj satırı: kart görünümü */
       .msg-item {
         grid-template-columns: auto auto minmax(0, 1fr) auto;
         grid-template-areas: "lead av sender time" "lead av main main" "lead av meta meta";
@@ -1449,7 +1379,6 @@
       .msg-item .snippet { font-size: 12.8px; margin-top: 1px; }
       .msg-item .snippet::before { content: none; }
       .msg-item .mi-meta { grid-area: meta; margin-top: 5px; }
-      /* Mesaj detay sayfası */
       .mp-top { gap: 10px; margin-bottom: 12px; }
       .mp-back span { display: none; }
       .mp-back { padding: 10px 12px; }

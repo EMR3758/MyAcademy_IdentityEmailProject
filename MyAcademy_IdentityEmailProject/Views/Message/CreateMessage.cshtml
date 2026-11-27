@@ -4,23 +4,20 @@
 @using Microsoft.AspNetCore.Mvc.Rendering
 @{
     ViewData["Title"] = "Yeni Mesaj";
-    ViewData["ActiveMenu"] = "compose";        // Sidebar'daki data-page="compose" / data-menu="compose" linkini aktif yapar
+    ViewData["ActiveMenu"] = "compose";
     Layout = "~/Views/MessageLayout/Index.cshtml";
 
-    // Controller'da: ViewBag.Categories = List<SelectListItem>
     var categories = ViewBag.Categories as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
 
     var userName = User.FindFirstValue(ClaimTypes.GivenName) ?? User.Identity?.Name ?? "";
     var userEmail = User.FindFirstValue(ClaimTypes.Email) ?? "";
 
-    // Sunucu tarafı (ModelState) hataları
     string ErrClass(string key) => ViewData.ModelState.TryGetValue(key, out var e) && e.Errors.Count > 0 ? "has-error" : "";
     string? ErrText(string key) => ViewData.ModelState.TryGetValue(key, out var e) ? e.Errors.FirstOrDefault()?.ErrorMessage : null;
-    var generalError = ErrText(string.Empty);   // ModelState.AddModelError("", "...") ile eklenen genel hata
+    var generalError = ErrText(string.Empty);
 }
 
 <style>
-    /* Kategori dropdown'u — compose satırlarıyla uyumlu sade görünüm */
     .cmp-select-wrap {
         position: relative;
         flex: 1;
@@ -86,10 +83,8 @@
         </div>
     </div>
 
-    @* Controller adınız farklıysa asp-controller ekleyin: asp-controller="Message" *@
     <form class="cmp-card" id="cmpForm" asp-action="CreateMessage" method="post" novalidate autocomplete="off">
 
-        <!-- Alıcı, kategori & konu -->
         <div class="cmp-fields">
             <div class="cmp-row">
                 <span class="cmp-label">Kimden</span>
@@ -129,7 +124,6 @@
             </div>
         </div>
 
-        <!-- Rich text araç çubuğu -->
         <div class="cmp-toolbar" id="cmpToolbar" role="toolbar" aria-label="Biçimlendirme">
             <div class="tb-wrap">
                 <button type="button" class="tb-btn tb-select" data-pop="block" title="Başlık biçimi"><span id="tbBlockLabel">Paragraf</span><i class="bi bi-chevron-down"></i></button>
@@ -184,7 +178,6 @@
             </div>
         </div>
 
-        <!-- Editör (HTML içerik gizli Content alanına yazılır) -->
         <div class="cmp-editor-wrap @ErrClass(nameof(Model.MessageDetail))" id="rowBody">
             <div class="cmp-editor" id="cmpEditor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Mesaj içeriği"
                  data-placeholder="Merhaba, mesajınızı buraya yazmaya başlayın…">
@@ -195,15 +188,31 @@
             <div class="cmp-err">@ErrText(nameof(Model.MessageDetail))</div>
         </div>
 
-        <!-- Alt işlem çubuğu -->
         <div class="cmp-actions">
-            <button type="submit" class="btn-send" id="cmpSend"><span class="lbl"><i class="bi bi-send-fill"></i> Mesajı Gönder</span></button>
-            <button type="button" class="btn-soft danger" id="cmpClear"><i class="bi bi-x-circle"></i> Temizle</button>
-            <span class="cmp-hint"><span class="kbd-s">Ctrl</span> + <span class="kbd-s">Enter</span> ile gönder</span>
+            <button type="submit" name="submitAction" value="send"
+                    class="btn-send" id="cmpSend">
+                <span class="lbl">
+                    <i class="bi bi-send-fill"></i> Mesajı Gönder
+                </span>
+            </button>
+
+            <button type="submit" name="submitAction" value="draft"
+                    class="btn-soft" id="cmpSaveDraft">
+                <i class="bi bi-save"></i> Taslak Olarak Kaydet
+            </button>
+
+            <button type="button" class="btn-soft danger" id="cmpClear">
+                <i class="bi bi-x-circle"></i> Temizle
+            </button>
+
+            <span class="cmp-hint">
+                <span class="kbd-s">Ctrl</span> +
+                <span class="kbd-s">Enter</span> ile gönder
+            </span>
         </div>
+
     </form>
 
-    <!-- Temizleme onay penceresi -->
     <div class="cmp-dialog" id="cmpDialog" hidden>
         <div class="cd-card" role="alertdialog" aria-modal="true" aria-labelledby="cdTitle">
             <div class="cd-ic"><i class="bi bi-exclamation-triangle"></i></div>
@@ -220,10 +229,6 @@
 
 @section Scripts {
     <script>
-        /* ======================================================================
-           YENİ MESAJ — form normal POST ile gönderilir (asp-action="Create").
-           JS: zengin metin editörü, istemci doğrulaması, Ctrl+Enter, temizle onayı.
-           ====================================================================== */
         (() => {
             const { $, $$, showToast } = window.Mailora;
 
@@ -238,7 +243,6 @@
             const textOf = html => { const d = document.createElement('div'); d.innerHTML = html || ''; return (d.textContent || '').trim(); };
             const escapeHtml = window.Mailora.escapeHtml;
 
-            /* --- Durum göstergesi --- */
             function updateStatus() {
                 const el = $('#cmpStatus');
                 const empty = !to.value.trim() && !category.value && !subject.value.trim() && !textOf(editor.innerHTML);
@@ -248,7 +252,6 @@
             }
             function markDirty() { dirty = true; updateStatus(); }
 
-            /* --- Hata gösterimi --- */
             function setFieldError(row, msg) {
                 row.classList.add('has-error');
                 $('.cmp-err', row).textContent = msg;
@@ -260,8 +263,7 @@
                 $('.cmp-err', row).textContent = '';
             }
 
-            /* --- Editör --- */
-            try { document.execCommand('defaultParagraphSeparator', false, 'p'); document.execCommand('styleWithCSS', false, true); } catch (e) { /* eski tarayıcı */ }
+            try { document.execCommand('defaultParagraphSeparator', false, 'p'); document.execCommand('styleWithCSS', false, true); } catch (e) {  }
 
             function syncContent() {
                 if (['<br>', '<p><br></p>', '<div><br></div>'].includes(editor.innerHTML.trim())) editor.innerHTML = '';
@@ -275,7 +277,7 @@
             }
 
             editor.addEventListener('input', () => { syncContent(); updateCounter(); clearFieldError($('#rowBody')); markDirty(); });
-            editor.addEventListener('paste', e => {      // dışarıdan gelen biçimleri temizle
+            editor.addEventListener('paste', e => {
                 const text = (e.clipboardData || window.clipboardData).getData('text/plain');
                 e.preventDefault();
                 document.execCommand('insertText', false, text);
@@ -338,7 +340,7 @@
                 if (!willOpen) return;
                 pop.classList.add('show');
                 btn.classList.add('open');
-                pop.style.left = '0px';                                   // ekran dışına taşmayı engelle
+                pop.style.left = '0px';
                 const over = pop.getBoundingClientRect().right - (window.innerWidth - 12);
                 if (over > 0) pop.style.left = `${-over}px`;
                 if (name === 'link') setTimeout(() => $('#tbLinkInput').focus(), 30);
@@ -365,7 +367,6 @@
             document.addEventListener('selectionchange', () => { saveSelection(); updateToolbarState(); });
             document.addEventListener('mousedown', e => { if (!e.target.closest('.tb-wrap')) closePops(); });
 
-            /* --- Alıcı / Kategori / Konu --- */
             to.addEventListener('input', () => { clearFieldError($('#rowTo')); markDirty(); });
             to.addEventListener('blur', () => {
                 const v = to.value.trim();
@@ -380,7 +381,6 @@
             subject.addEventListener('input', () => { clearFieldError($('#rowSubject')); markDirty(); });
             subject.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); editor.focus(); } });
 
-            /* --- Doğrulama & gönderim --- */
             function validate() {
                 let first = null;
                 const fail = (row, msg, el) => { setFieldError(row, msg); if (!first) first = el; };
@@ -396,22 +396,49 @@
                 return true;
             }
 
+            
             form.addEventListener('submit', e => {
                 closePops();
                 to.value = to.value.trim();
                 syncContent();
-                if (sending) { e.preventDefault(); return; }
-                if (!validate()) { e.preventDefault(); showToast('Lütfen işaretli alanları kontrol edin.', 'bi-exclamation-circle'); return; }
 
-                sending = true; dirty = false;
-                const btn = $('#cmpSend');
-                btn.disabled = true;
-                $('.lbl', btn).innerHTML = '<span class="spin"></span> Gönderiliyor…';
+                if (sending) {
+                    e.preventDefault();
+                    return;
+                }
+
+                const isDraft = e.submitter?.value === 'draft';
+
+                if (isDraft && !category.value) {
+                    e.preventDefault();
+                    setFieldError($('#rowCategory'), 'Taslak için kategori seçin.');
+                    category.focus();
+                    return;
+                }
+
+                if (!isDraft && !validate()) {
+                    e.preventDefault();
+                    showToast('Lütfen işaretli alanları kontrol edin.', 'bi-exclamation-circle');
+                    return;
+                }
+
+                sending = true;
+                dirty = false;
+
+                const btn = e.submitter;
+
+                if (btn) {
+                    btn.setAttribute('aria-disabled', 'true');
+                    btn.style.pointerEvents = 'none';
+                    btn.innerHTML = isDraft
+                        ? '<i class="bi bi-save"></i> Kaydediliyor…'
+                        : '<span class="lbl"><span class="spin"></span> Gönderiliyor…</span>';
+                }
+
                 updateStatus();
-                // Form normal şekilde POST edilir → Controller'daki Create(CreateMessageViewModel model)
             });
 
-            /* --- Temizle (onaylı) --- */
+
             const dialog = $('#cmpDialog');
             const openClear = () => {
                 const empty = !to.value.trim() && !category.value && !subject.value.trim() && !textOf(editor.innerHTML);
@@ -435,17 +462,14 @@
                 } else if (act === 'cancel' || e.target === dialog) closeClear();
             });
 
-            /* --- Kısayollar --- */
             $('#compose').addEventListener('keydown', e => {
                 const mod = e.ctrlKey || e.metaKey;
-                if (mod && e.key === 'Enter') { e.preventDefault(); form.requestSubmit(); }
+                if (mod && e.key === 'Enter') { e.preventDefault(); if (!sending) form.requestSubmit($('#cmpSend')); }
                 if (e.key === 'Escape') { closePops(); closeClear(); }
             });
 
-            // Kaydedilmemiş içerikle sayfadan çıkarken uyar
             window.addEventListener('beforeunload', e => { if (dirty && !sending) { e.preventDefault(); e.returnValue = ''; } });
 
-            /* --- Başlangıç --- */
             syncContent();
             syncCategory();
             updateCounter();
@@ -455,7 +479,6 @@
             const generalError = @Json.Serialize(generalError);
             if (generalError) showToast(escapeHtml(generalError), 'bi-exclamation-circle');
 
-            // İlk hatalı alana ya da boş alana odaklan
             const firstErr = $('#compose .has-error input, #compose .has-error select, #compose .has-error .cmp-editor');
             if (firstErr) firstErr.focus();
             else if (window.innerWidth >= 768) (!to.value ? to : !category.value ? category : !subject.value ? subject : editor).focus();

@@ -29,7 +29,6 @@ namespace MyAcademy_IdentityEmailProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SignUp(UserRegisterViewModel userRegisterViewModel)
         {
-            // new Random() tahmin edilebilir, güvenlik kodunda kriptografik rastgele sayı kullanılır
             int validCode = RandomNumberGenerator.GetInt32(100000, 1000000);
             if (!ModelState.IsValid) 
             {

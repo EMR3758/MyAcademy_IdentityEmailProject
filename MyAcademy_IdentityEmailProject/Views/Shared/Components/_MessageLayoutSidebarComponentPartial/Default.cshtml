@@ -1,9 +1,4 @@
-﻿<!-- =====================================================================
-       SHARED SIDEBAR
-       ASP.NET Core MVC: Views/Shared/_Sidebar.cshtml (partial) — _Layout.cshtml içinde
-       Menü linkleri ileride asp-controller / asp-action ile değiştirilecek.
-       ===================================================================== -->
-<aside class="app-sidebar" id="appSidebar" aria-label="Ana menü">
+﻿<aside class="app-sidebar" id="appSidebar" aria-label="Ana menü">
     <a class="brand" data-page="inbox" asp-controller="Message" asp-action="Inbox">
         <div class="brand-logo"><i class="bi bi-envelope-paper-heart-fill"></i></div>
         <div class="brand-name">Mail<span>ora</span></div>
@@ -19,10 +14,19 @@
     </a>
     <div class="nav-section-title">Menü</div>
     <ul class="side-nav">
-        <li><a class="side-link" data-page="dashboard" href="#dashboard" data-tip="Dashboard"><i class="bi bi-grid-1x2"></i> <span class="lbl">Dashboard</span></a></li>
+        <li><a class="side-link" data-page="dashboard" asp-controller="Dashboard" asp-action="Dashboard" data-tip="Dashboard"><i class="bi bi-grid-1x2"></i> <span class="lbl">Dashboard</span></a></li>
         <li><a class="side-link" data-page="inbox" asp-controller="Message" asp-action="Inbox" data-tip="Gelen Kutusu"><i class="bi bi-inbox"></i> <span class="lbl">Gelen Kutusu</span> <span class="side-badge" id="badgeInbox"></span></a></li>
         <li><a class="side-link" data-page="sent" asp-controller="Message" asp-action="SendBox" data-tip="Gönderilenler"><i class="bi bi-send"></i> <span class="lbl">Gönderilenler</span></a></li>
-        <li><a class="side-link" data-page="drafts" href="#drafts" data-tip="Taslaklar"><i class="bi bi-file-earmark-text"></i> <span class="lbl">Taslaklar</span> <span class="side-badge muted">3</span></a></li>
+        <li>
+            <a class="side-link"
+               data-page="drafts"
+               asp-controller="Message"
+               asp-action="Drafts"
+               data-tip="Taslaklar">
+                <i class="bi bi-file-earmark-text"></i>
+                <span class="lbl">Taslaklar</span>
+            </a>
+        </li>
         <li>
             <a class="side-link"
                data-page="starred"
@@ -34,7 +38,7 @@
                 <span class="side-badge muted" id="badgeStarred"></span>
             </a>
         </li>
-        <li><a class="side-link" data-page="trash" href="#trash" data-tip="Çöp Kutusu"><i class="bi bi-trash3"></i> <span class="lbl">Çöp Kutusu</span> <span class="side-badge muted" id="badgeTrash"></span></a></li>
+        <li><a class="side-link" data-page="trash" asp-controller="Message" asp-action="Trash" data-tip="Çöp Kutusu"><i class="bi bi-trash3"></i> <span class="lbl">Çöp Kutusu</span> <span class="side-badge muted" id="badgeTrash"></span></a></li>
     </ul>
 
     <div class="nav-section-title">Hesap</div>
@@ -71,4 +75,3 @@
     </div>
 </aside>
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-<!-- /SHARED SIDEBAR -->

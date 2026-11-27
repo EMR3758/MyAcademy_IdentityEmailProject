@@ -5,7 +5,7 @@
 @using System.Text.RegularExpressions
 @{
     ViewData["Title"] = "Gönderilenler";
-    ViewData["ActiveMenu"] = "sent";           // Sidebar'daki data-page="sent" linkini aktif yapar
+    ViewData["ActiveMenu"] = "sent";
     Layout = "~/Views/MessageLayout/Index.cshtml";
 
     var messages = (Model ?? new List<MyAcademy_IdentityEmailProject.Entities.Message>())
@@ -14,7 +14,6 @@
     var readCount = messages.Count(m => m.IsRead);
     var userEmail = User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name ?? "";
 
-    // MessageController.CreateMessage → başarılı gönderimden sonra buraya yönlendirir
     var successMessage = TempData["SuccessMessage"] as string;
 }
 @functions {
@@ -28,7 +27,6 @@
         return string.Concat(parts.Take(2).Select(p => p[0])).ToUpper(Tr);
     }
 
-    // Aynı alıcı her zaman aynı renkte görünür (Gelen Kutusu ile aynı algoritma)
     static string AvatarColor(string? key)
     {
         var h = 0;
@@ -36,7 +34,6 @@
         return AvatarColors[h % AvatarColors.Length];
     }
 
-    // HTML içerikten tek satırlık düz metin özet
     static string Snippet(string? html, int max = 140)
     {
         if (string.IsNullOrWhiteSpace(html)) return "";
@@ -45,7 +42,6 @@
         return text.Length > max ? text[..max].TrimEnd() + "…" : text;
     }
 
-    // Bugün → 10:42 · Dün → Dün · Bu yıl → 4 Kas · Eski → 12.03.2025
     static string ShortTime(DateTime d)
     {
         var today = DateTime.Today;
@@ -57,7 +53,6 @@
 }
 
 <style>
-    /* Gönderilenler — yalnızca bu sayfaya özgü küçük eklemeler; geri kalan her şey ortak tasarım sistemi */
     .sent-box .msg-item .lead { width: 18px; justify-content: center; color: #C9CBD6; font-size: 15px; }
     .sent-box .msg-item:hover .lead { color: var(--accent); }
     .sent-box .msg-item .to-prefix { font-size: 12px; font-weight: 600; color: var(--muted); margin-right: 2px; }
@@ -70,7 +65,6 @@
 
     <div class="panel list-panel">
 
-        <!-- Başlık + arama + filtreler -->
         <div class="list-head">
             <div class="list-title">
                 <div>
@@ -90,7 +84,6 @@
             </div>
         </div>
 
-        <!-- Araç çubuğu -->
         <div class="bulk-bar">
             <span class="sel-info" id="selInfo">Gönderdiğiniz mesajlar</span>
             <span class="spacer"></span>
@@ -98,7 +91,6 @@
             <button type="button" class="tool-btn" id="refreshBtn" title="Yenile"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
 
-        <!-- Mesaj listesi (sunucu tarafında oluşturulur) -->
         <div class="msg-list" id="msgList">
             @foreach (var m in messages)
             {
@@ -106,8 +98,6 @@
                 var search = $"{m.ReceiverEmail} {m.Subject} {snippet}".ToLower(Tr);
                 var detailUrl = Url.Action("Detail", "Message", new { id = m.MessageId });
 
-                @* "unread" sınıfı kullanılmaz: gönderilen mesajı kullanıcı zaten okumuştur.
-                   IsRead burada alıcının mesajı açıp açmadığını gösterir → durum etiketi. *@
                 <article class="msg-item"
                          data-id="@m.MessageId"
                          data-href="@detailUrl"
@@ -140,7 +130,6 @@
                 </article>
             }
 
-            <!-- Hiç gönderilmiş mesaj yoksa -->
             <div class="empty-list" id="emptySent" hidden="@(messages.Any() ? "hidden" : null)">
                 <div class="ic"><i class="bi bi-send"></i></div>
                 <h6>Henüz mesaj göndermediniz</h6>
@@ -150,7 +139,6 @@
                 </a>
             </div>
 
-            <!-- Filtre / arama sonucu boşsa -->
             <div class="empty-list" id="noResults" hidden>
                 <div class="ic"><i class="bi bi-search-heart"></i></div>
                 <h6>Sonuç bulunamadı</h6>
@@ -158,7 +146,6 @@
             </div>
         </div>
 
-        <!-- Sayfalama -->
         <div class="list-foot">
             <span class="range" id="rangeInfo"></span>
             <div class="pager" id="pager"></div>
@@ -169,10 +156,6 @@
 
 @section Scripts {
     <script>
-        /* ======================================================================
-           GÖNDERİLENLER — liste sunucudan gelir (MessageController.SendBox);
-           arama, filtre, sayfalama ve klavye gezinmesi tarayıcıda yapılır.
-           ====================================================================== */
         (() => {
             const { $, $$, showToast } = window.Mailora;
             const PER_PAGE = 10;
@@ -191,7 +174,6 @@
             const rowId = r => +r.dataset.id;
             const isRead = r => r.dataset.read === '1';
 
-            /* --- Filtreleme & sayfalama --- */
             function matches(r) {
                 if (state.filter === 'read' && !isRead(r)) return false;
                 if (state.filter === 'sent' && isRead(r)) return false;
@@ -208,7 +190,6 @@
                 return all.slice(start, start + PER_PAGE);
             }
 
-            /* --- Ana çizim --- */
             function render() {
                 const all = filtered();
                 const visible = new Set(pageRows(all));
@@ -262,7 +243,6 @@
                 if (r.dataset.href) location.href = r.dataset.href;
             }
 
-            /* --- Arama (liste + navbar senkron) --- */
             const search = $('#listSearch');
             const globalSearch = $('#globalSearch');
 
@@ -275,7 +255,6 @@
                 render();
             }
 
-            /* --- Olaylar --- */
             search.addEventListener('input', e => setQuery(e.target.value, 'list'));
             $('#listSearchClear').addEventListener('click', () => { setQuery('', 'clear'); search.focus(); });
 
@@ -310,7 +289,6 @@
                 if (r && e.key === 'Enter') openRow(r);
             });
 
-            // Klavye ile gezinme: j / ↓ sonraki, k / ↑ önceki, Enter aç
             function moveCursor(dir) {
                 const list = filtered();
                 if (!list.length) return;
@@ -329,10 +307,8 @@
                 if (e.key === 'k' || e.key === 'ArrowUp') { e.preventDefault(); moveCursor(-1); }
             });
 
-            /* --- Layout bağlantısı: navbar araması bu listeyi filtreler --- */
             window.Mailora.onSearch = value => setQuery(value, 'global');
 
-            /* --- Başlangıç --- */
             setQuery(state.query, 'init');
 
             const successMessage = @Json.Serialize(successMessage);

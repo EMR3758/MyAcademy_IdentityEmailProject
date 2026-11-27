@@ -1,0 +1,648 @@
+﻿@model MyAcademy_IdentityEmailProject.Models.DashboardViewModel
+@using System.Globalization
+@using System.Net
+@using System.Text.RegularExpressions
+@using MyAcademy_IdentityEmailProject.Entities
+@{
+    ViewData["Title"] = "Dashboard";
+    ViewData["ActiveMenu"] = "dashboard";
+    Layout = "~/Views/MessageLayout/Index.cshtml";
+
+    var m = Model;
+    var fullName = $"{m.UserName} {m.UserSurname}".Trim();
+    var firstName = string.IsNullOrWhiteSpace(m.UserName) ? "Kullanıcı" : m.UserName;
+
+    var readCount = Math.Max(0, m.TotalInbox - m.UnreadCount);
+    int? readRate = m.TotalInbox > 0 ? (int)Math.Round(readCount * 100.0 / m.TotalInbox) : null;
+
+    var traffic = m.DailyTraffic
+        .Select(t => new { date = t.Date.ToString("yyyy-MM-dd"), incoming = t.Incoming, outgoing = t.Outgoing })
+        .ToList();
+
+    var catColors = new[] { "#8B7FD6", "#7FB2F0", "#5CC09A", "#F2B84B", "#E07597", "#B9BCCB" };
+    var cats = m.CategoryCounts.Where(c => c.Count > 0).OrderByDescending(c => c.Count).ToList();
+    var catSlices = cats.Take(5).Select(c => (Name: c.CategoryName, Count: c.Count)).ToList();
+    if (cats.Count > 5) catSlices.Add(("Diğer", cats.Skip(5).Sum(c => c.Count)));
+    var catTotal = catSlices.Sum(c => c.Count);
+
+    void MessageRow(Message msg, bool incoming)
+    {
+        var contact = incoming ? msg.SenderEmail : msg.ReceiverEmail;
+        var snippet = Snippet(msg.MessageDetail);
+        <a class="db-msg @(incoming && !msg.IsRead ? "unread" : "")" href="@Url.Action("Detail", "Message", new { id = msg.MessageId })">
+            <span class="avatar @AvatarColor(contact)">@Initials(contact)</span>
+            <span class="bd">
+                <span class="nm">
+                    <span class="sj">
+                        @if (!incoming)
+                        {
+                            <span class="to-prefix">Kime:</span>
+                        }
+                        @contact
+                    </span>
+                    @if (incoming && !msg.IsRead)
+                    {
+                        <span class="unread-dot" title="Okunmadı"></span>
+                    }
+                    else if (!incoming && msg.IsRead)
+                    {
+                        <i class="bi bi-check2-all read-ic" title="Alıcı okudu"></i>
+                    }
+                </span>
+                <span class="sj">@(string.IsNullOrWhiteSpace(msg.Subject) ? "(Konu yok)" : msg.Subject)</span>
+                @if (!string.IsNullOrEmpty(snippet))
+                {
+                    <span class="sn">@snippet</span>
+                }
+            </span>
+            <span class="tm" title="@msg.SendDate.ToString("d MMMM yyyy, HH:mm", Tr)">@ShortTime(msg.SendDate)</span>
+        </a>
+    }
+}
+@functions {
+    static readonly CultureInfo Tr = new("tr-TR");
+    static readonly string[] AvatarColors = { "av-lav", "av-blue", "av-mint", "av-rose", "av-peach", "av-sun" };
+
+    static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(parts.Take(2).Select(p => p[0])).ToUpper(Tr);
+    }
+
+    static string AvatarColor(string? key)
+    {
+        var h = 0;
+        foreach (var c in key ?? "") h = (h * 31 + c) & 0x7fffffff;
+        return AvatarColors[h % AvatarColors.Length];
+    }
+
+    static string Snippet(string? html, int max = 90)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return "";
+        var text = WebUtility.HtmlDecode(Regex.Replace(html, "<[^>]+>", " "));
+        text = Regex.Replace(text, @"\s+", " ").Trim();
+        return text.Length > max ? text[..max].TrimEnd() + "…" : text;
+    }
+
+    static string ShortTime(DateTime d)
+    {
+        var today = DateTime.Today;
+        if (d.Date == today) return d.ToString("HH:mm", Tr);
+        if (d.Date == today.AddDays(-1)) return "Dün";
+        if (d.Year == today.Year) return d.ToString("d MMM", Tr);
+        return d.ToString("dd.MM.yyyy", Tr);
+    }
+
+    static string N(int n) => n.ToString("N0", Tr);
+
+    static string Inv(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+}
+
+<style>
+    .dashboard a.db-stat, .dashboard a.db-msg, .dashboard a.db-tile { text-decoration: none; color: inherit; }
+    .dashboard a.btn-send, .dashboard a.db-chip { text-decoration: none; }
+    .dashboard a.db-link { text-decoration: none; color: var(--accent-dark); }
+    .dashboard .db-more { text-align: right; margin-top: 8px; }
+
+    .dashboard .db-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .t-sun { --tint: #FFF6DA !important; --ink: #B88A12 !important; }
+    .t-rose { --tint: var(--rose) !important; --ink: #C2476B !important; }
+
+    .dashboard .db-legend-item { cursor: pointer; }
+    .dashboard .db-chart-empty { position: absolute; inset: 0; }
+    .dashboard .db-chart-empty[hidden] { display: none; }
+    .dashboard .db-chart-empty small { display: block; margin-top: 4px; font-size: 12px; opacity: .85; }
+    .db-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .db-svg .grid { stroke: #EEEDF6; stroke-width: 1; }
+    .db-svg .ax { fill: var(--muted); font-size: 11px; font-family: inherit; }
+    .db-svg .line { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+    .db-svg .dot { stroke: #fff; stroke-width: 2; }
+    .db-svg .guide { stroke: #DDD6F7; stroke-width: 1; stroke-dasharray: 3 3; }
+    .db-svg .hit { fill: transparent; cursor: crosshair; }
+    .db-tip {
+        position: absolute; z-index: 2; pointer-events: none; min-width: 132px;
+        background: #2E3045; color: #fff; border-radius: 10px; padding: 8px 11px;
+        font-size: 12px; box-shadow: 0 10px 24px rgba(46, 48, 69, .25); transform: translate(-50%, calc(-100% - 12px));
+    }
+    .db-tip .d { font-weight: 700; margin-bottom: 4px; color: #D7D1FA; }
+    .db-tip .r { display: flex; align-items: center; gap: 7px; }
+    .db-tip .r i { width: 8px; height: 8px; border-radius: 3px; display: inline-block; }
+    .db-tip .r b { margin-left: auto; padding-left: 12px; }
+
+    .db-donut-svg { width: 100%; height: 100%; }
+    .db-donut-svg circle { transition: stroke-width .2s; }
+    .db-donut-svg circle:hover { stroke-width: 5.2; }
+    .dashboard .db-donut-box.empty { border-radius: 50%; background: #ECEBF5; display: grid; place-items: center; }
+    .dashboard .db-donut-box.empty::after { content: ""; position: absolute; inset: 26px; border-radius: 50%; background: #fff; }
+    .dashboard .db-donut-box.empty .db-donut-center { z-index: 1; }
+    .dashboard .db-dist-note { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.6; }
+
+    .dashboard .db-msg .avatar { width: 38px; height: 38px; font-size: 13px; flex-shrink: 0; }
+    .dashboard .db-msg .nm .sj { margin: 0; }
+    .dashboard .db-msg .bd > .sj, .dashboard .db-msg .bd > .sn { display: block; }
+    .dashboard .db-msg .to-prefix { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+    .dashboard .db-msg .read-ic { color: #3E9A77; font-size: 14px; flex-shrink: 0; }
+    .dashboard .db-msg .unread-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .dashboard .db-empty { text-align: center; padding: 26px 12px; color: var(--muted); font-size: 13px; }
+    .dashboard .db-empty .ic { width: 48px; height: 48px; border-radius: 15px; margin: 0 auto 10px; display: grid; place-items: center; font-size: 20px; background: var(--lavender); color: var(--accent-dark); }
+    .dashboard .db-empty h6 { font-weight: 700; color: var(--text); font-size: 14px; margin-bottom: 4px; }
+    .dashboard .db-empty .btn-soft { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; text-decoration: none; font-size: 13px; }
+
+    .db-acc-rate { display: flex; align-items: center; gap: 16px; padding: 4px 0 16px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+    .db-ring {
+        --p: 0; position: relative; width: 84px; height: 84px; border-radius: 50%; flex-shrink: 0;
+        background: conic-gradient(var(--accent) calc(var(--p) * 1%), #ECEBF5 0);
+    }
+    .db-ring::after { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: #fff; }
+    .db-ring b { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; font-size: 18px; font-weight: 800; letter-spacing: -.4px; }
+    .db-acc-rate .t { font-size: 14px; font-weight: 700; }
+    .db-acc-rate .s { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+    .db-acc-list { list-style: none; margin: 0; padding: 0; }
+    .db-acc-list li { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px dashed var(--border); font-size: 13.5px; }
+    .db-acc-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+    .db-acc-list .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 15px; background: var(--tint); color: var(--ink); flex-shrink: 0; }
+    .db-acc-list .k { color: #4D5066; font-weight: 600; }
+    .db-acc-list .v { margin-left: auto; font-weight: 800; white-space: nowrap; }
+    .db-acc-list a.v { color: var(--accent-dark); text-decoration: none; }
+    .db-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #3E9A77; background: var(--mint); padding: 4px 10px; border-radius: 20px; }
+    .db-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #5CC09A; }
+    .db-status.warn { color: #C8774A; background: var(--peach); }
+    .db-status.warn::before { background: #EBA27A; }
+
+    @@media (max-width: 1399.98px) {
+        .dashboard .db-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @@media (max-width: 1199.98px) {
+        .dashboard .db-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @@media (max-width: 575.98px) {
+        .dashboard .db-stats { grid-template-columns: minmax(0, 1fr); }
+    }
+</style>
+
+<div class="dashboard" id="dashboard">
+
+    <section class="db-welcome" aria-labelledby="dbHello">
+        <div class="db-welcome-text">
+            <span class="db-date"><i class="bi bi-calendar3"></i> @DateTime.Now.ToString("d MMMM yyyy, dddd", Tr)</span>
+            <h1 id="dbHello">Hoş geldin, @firstName <span class="wave">👋</span></h1>
+            <p>Mailora hesabınızda bugün neler olduğuna hızlıca göz atın.</p>
+
+            <div class="db-welcome-row">
+                <a class="btn-send" asp-controller="Message" asp-action="CreateMessage">
+                    <span class="lbl"><i class="bi bi-pencil-square"></i> Yeni Mesaj Oluştur</span>
+                </a>
+                @if (m.UnreadCount > 0)
+                {
+                    <a class="db-chip warn" asp-controller="Message" asp-action="Inbox" asp-route-filter="unread">
+                        <i class="bi bi-envelope-exclamation"></i> <b>@N(m.UnreadCount)</b> okunmamış mesajınız var
+                    </a>
+                }
+                else
+                {
+                    <span class="db-chip ok"><i class="bi bi-check2-circle"></i> Okunmamış mesajınız yok</span>
+                }
+            </div>
+        </div>
+
+        <div class="db-illus" aria-hidden="true">
+            <i class="bi bi-send-fill plane"></i>
+            <span class="bubble b1"></span><span class="bubble b2"></span><span class="bubble b3"></span>
+            <div class="env">
+                <div class="letter"><i></i><i></i><i></i></div>
+                <div class="env-front"></div>
+                @if (m.UnreadCount > 0)
+                {
+                    <span class="env-badge">@(m.UnreadCount > 99 ? "99+" : m.UnreadCount.ToString())</span>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="db-stats" aria-label="Mesaj istatistikleri">
+        <a class="db-stat t-blue" asp-controller="Message" asp-action="Inbox">
+            <div class="top"><span class="ic"><i class="bi bi-inbox"></i></span></div>
+            <div class="num">@N(m.TotalInbox)</div>
+            <div class="lbl">Gelen Mesaj</div>
+            <div class="desc"><span>Gelen kutunuzdaki mesajlar</span><i class="bi bi-arrow-right"></i></div>
+        </a>
+        <a class="db-stat t-lav" asp-controller="Message" asp-action="SendBox">
+            <div class="top"><span class="ic"><i class="bi bi-send"></i></span></div>
+            <div class="num">@N(m.TotalSent)</div>
+            <div class="lbl">Gönderilen Mesaj</div>
+            <div class="desc"><span>Gönderdiğiniz mesajlar</span><i class="bi bi-arrow-right"></i></div>
+        </a>
+        <a class="db-stat t-peach" asp-controller="Message" asp-action="Inbox" asp-route-filter="unread">
+            <div class="top">
+                <span class="ic"><i class="bi bi-envelope"></i></span>
+                @if (m.UnreadCount > 0)
+                {
+                    <span class="trend">Okunmayı bekliyor</span>
+                }
+            </div>
+            <div class="num">@N(m.UnreadCount)</div>
+            <div class="lbl">Okunmamış</div>
+            <div class="desc"><span>Henüz açmadığınız mesajlar</span><i class="bi bi-arrow-right"></i></div>
+        </a>
+        <a class="db-stat t-sun" asp-controller="Message" asp-action="StarredMessages">
+            <div class="top"><span class="ic"><i class="bi bi-star"></i></span></div>
+            <div class="num">@N(m.FavoriteCount)</div>
+            <div class="lbl">Favori</div>
+            <div class="desc"><span>Yıldızladığınız mesajlar</span><i class="bi bi-arrow-right"></i></div>
+        </a>
+        <a class="db-stat t-mint" asp-controller="Message" asp-action="Drafts">
+            <div class="top"><span class="ic"><i class="bi bi-file-earmark-text"></i></span></div>
+            <div class="num">@N(m.DraftCount)</div>
+            <div class="lbl">Taslak</div>
+            <div class="desc"><span>Gönderilmeyi bekleyen</span><i class="bi bi-arrow-right"></i></div>
+        </a>
+    </section>
+
+    <div class="db-row charts">
+
+        <section class="db-card" aria-labelledby="dbTrafficTitle">
+            <div class="db-card-head">
+                <div>
+                    <h3 id="dbTrafficTitle">Mesaj Trafiği</h3>
+                    <p>Gelen ve gönderilen mesajların günlere göre dağılımı</p>
+                </div>
+                <div class="db-seg" role="group" aria-label="Zaman aralığı" id="dbRange">
+                    <button type="button" class="active" data-range="7" aria-pressed="true">Son 7 gün</button>
+                    <button type="button" data-range="30" aria-pressed="false">Son 30 gün</button>
+                </div>
+            </div>
+
+            <div class="db-legend" id="dbLegend"></div>
+
+            <div class="db-chart-box" id="dbChart" role="img" aria-label="Günlük gelen ve gönderilen mesaj grafiği">
+                <svg class="db-svg" id="dbChartSvg" aria-hidden="true"></svg>
+                <div class="db-tip" id="dbChartTip" hidden></div>
+                <div class="db-chart-empty" id="dbChartEmpty" hidden>
+                    <div>
+                        <i class="bi bi-graph-up"></i>
+                        Bu dönemde mesaj trafiği yok.
+                        <small>Mesaj gönderip aldıkça grafik burada oluşacak.</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="db-card db-dist" aria-labelledby="dbDistTitle">
+            <div class="db-card-head">
+                <div>
+                    <h3 id="dbDistTitle">Kategori Dağılımı</h3>
+                    <p>Mesajlarınızın kategorilere göre dağılımı</p>
+                </div>
+            </div>
+            <div class="db-dist-body">
+                @if (catTotal > 0)
+                {
+                    var offset = 0.0;
+                    <div class="db-donut-box">
+                        <svg viewBox="0 0 36 36" class="db-donut-svg" aria-hidden="true">
+                            <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#F1F0FB" stroke-width="4.2"></circle>
+                            @for (var i = 0; i < catSlices.Count; i++)
+                            {
+                                var pct = catSlices[i].Count * 100.0 / catTotal;
+                                var gap = catSlices.Count > 1 ? Math.Min(0.6, pct / 2) : 0;
+                                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="@catColors[i]" stroke-width="4.2"
+                                        stroke-dasharray="@Inv(pct - gap) @Inv(100 - pct + gap)"
+                                        stroke-dashoffset="@Inv(25 - offset)">
+                                    <title>@catSlices[i].Name: @catSlices[i].Count</title>
+                                </circle>
+                                offset += pct;
+                            }
+                        </svg>
+                        <div class="db-donut-center"><div><b>@N(catTotal)</b><span>mesaj</span></div></div>
+                    </div>
+                    <ul class="db-dist-list">
+                        @for (var i = 0; i < catSlices.Count; i++)
+                        {
+                            <li>
+                                <span class="db-dot" style="background:@catColors[i]"></span>
+                                <span>@catSlices[i].Name</span>
+                                <span class="c">@N(catSlices[i].Count)</span>
+                                <span class="p">%@((int)Math.Round(catSlices[i].Count * 100.0 / catTotal))</span>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="db-donut-box empty">
+                        <div class="db-donut-center"><div><b>0</b><span>mesaj</span></div></div>
+                    </div>
+                    <p class="db-dist-note">
+                        Henüz kategorize edilmiş mesajınız yok.<br />
+                        Mesaj gönderip aldıkça dağılım burada listelenecek.
+                    </p>
+                }
+            </div>
+        </section>
+    </div>
+
+    <div class="db-row bottom">
+
+        <section class="db-card db-recent" aria-labelledby="dbRecentTitle">
+            <div class="db-card-head">
+                <div>
+                    <h3 id="dbRecentTitle">Son Mesajlar</h3>
+                    <p>En son gelen ve gönderilen mesajlarınız</p>
+                </div>
+                <div class="db-seg" role="tablist" aria-label="Mesaj türü" id="dbRecentTabs">
+                    <button type="button" class="active" role="tab" aria-selected="true" aria-controls="dbPaneIn">Gelen</button>
+                    <button type="button" role="tab" aria-selected="false" aria-controls="dbPaneOut">Gönderilen</button>
+                </div>
+            </div>
+
+            <div id="dbPaneIn" role="tabpanel">
+                @if (m.RecentMessages.Any())
+                {
+                    <div class="db-msgs">
+                        @foreach (var msg in m.RecentMessages)
+                        {
+                            MessageRow(msg, true);
+                        }
+                    </div>
+                    <div class="db-more">
+                        <a class="db-link" asp-controller="Message" asp-action="Inbox">Gelen Kutusu'na git <i class="bi bi-arrow-right"></i></a>
+                    </div>
+                }
+                else
+                {
+                    <div class="db-empty">
+                        <div class="ic"><i class="bi bi-inbox"></i></div>
+                        <h6>Henüz gelen mesaj yok</h6>
+                        <div>Yeni mesajlar geldiğinde burada listelenecek.</div>
+                    </div>
+                }
+            </div>
+
+            <div id="dbPaneOut" role="tabpanel" hidden>
+                @if (m.RecentSentMessages.Any())
+                {
+                    <div class="db-msgs">
+                        @foreach (var msg in m.RecentSentMessages)
+                        {
+                            MessageRow(msg, false);
+                        }
+                    </div>
+                    <div class="db-more">
+                        <a class="db-link" asp-controller="Message" asp-action="SendBox">Gönderilenler'e git <i class="bi bi-arrow-right"></i></a>
+                    </div>
+                }
+                else
+                {
+                    <div class="db-empty">
+                        <div class="ic"><i class="bi bi-send"></i></div>
+                        <h6>Henüz gönderilen mesaj yok</h6>
+                        <div>Gönderdiğiniz mesajlar burada listelenecek.</div>
+                        <a class="btn-soft" asp-controller="Message" asp-action="CreateMessage"><i class="bi bi-pencil-square"></i> Yeni Mesaj Oluştur</a>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="db-card" aria-labelledby="dbQuickTitle">
+            <div class="db-card-head">
+                <div>
+                    <h3 id="dbQuickTitle">Hızlı İşlemler</h3>
+                    <p>Sık kullandığınız sayfalara tek tıkla gidin</p>
+                </div>
+            </div>
+            <div class="db-quick-grid">
+                <a class="db-tile t-lav" asp-controller="Message" asp-action="CreateMessage">
+                    <i class="bi bi-pencil-square"></i>
+                    <span>Yeni Mesaj<small>E-posta oluştur</small></span>
+                </a>
+                <a class="db-tile t-blue" asp-controller="Message" asp-action="Inbox">
+                    <i class="bi bi-inbox"></i>
+                    <span>Gelen Kutusu<small>@N(m.UnreadCount) okunmamış</small></span>
+                </a>
+                <a class="db-tile t-mint" asp-controller="Message" asp-action="Drafts">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span>Taslaklar<small>@N(m.DraftCount) taslak</small></span>
+                </a>
+                <a class="db-tile t-peach" asp-controller="Profile" asp-action="MyProfile">
+                    <i class="bi bi-person-circle"></i>
+                    <span>Profil<small>Hesap bilgileri</small></span>
+                </a>
+            </div>
+        </section>
+
+        <section class="db-card" aria-labelledby="dbAccTitle">
+            <div class="db-card-head">
+                <div>
+                    <h3 id="dbAccTitle">Hesap Özeti</h3>
+                    <p>@(string.IsNullOrWhiteSpace(fullName) ? m.UserEmail : fullName)</p>
+                </div>
+            </div>
+
+            <div class="db-acc-rate">
+                <div class="db-ring" style="--p:@(readRate ?? 0)" role="img" aria-label="Okunma oranı @(readRate.HasValue ? "%" + readRate : "hesaplanamadı")">
+                    <b>@(readRate.HasValue ? "%" + readRate : "—")</b>
+                </div>
+                <div>
+                    <div class="t">Okunma Oranı</div>
+                    <div class="s">
+                        @if (readRate.HasValue)
+                        {
+                            @:Gelen @N(m.TotalInbox) mesajın @N(readCount) tanesini okudunuz.
+                        }
+                        else
+                        {
+                            @:Henüz gelen mesajınız yok.
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <ul class="db-acc-list">
+                <li>
+                    <span class="ic t-lav"><i class="bi bi-calendar-week"></i></span>
+                    <span class="k">Haftalık gönderilen</span>
+                    <span class="v" title="Son 7 gün (bugün dahil)">@N(m.WeeklySentCount)</span>
+                </li>
+                <li>
+                    <span class="ic t-rose"><i class="bi bi-trash3"></i></span>
+                    <span class="k">Çöp kutusu</span>
+                    <a class="v" asp-controller="Message" asp-action="Trash">@N(m.TrashCount)</a>
+                </li>
+                <li>
+                    <span class="ic @(m.EmailConfirmed ? "t-mint" : "t-peach")"><i class="bi @(m.EmailConfirmed ? "bi-shield-check" : "bi-shield-exclamation")"></i></span>
+                    <span class="k">Hesap durumu</span>
+                    <span class="v">
+                        <span class="db-status @(m.EmailConfirmed ? "" : "warn")">@(m.EmailConfirmed ? "E-posta doğrulandı" : "Doğrulanmadı")</span>
+                    </span>
+                </li>
+            </ul>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const { $, $$ } = window.Mailora;
+
+            const tabs = $('#dbRecentTabs');
+            tabs.addEventListener('click', e => {
+                const btn = e.target.closest('[role="tab"]');
+                if (!btn) return;
+                $$('[role="tab"]', tabs).forEach(b => {
+                    const on = b === btn;
+                    b.classList.toggle('active', on);
+                    b.setAttribute('aria-selected', on);
+                    $('#' + b.getAttribute('aria-controls')).hidden = !on;
+                });
+            });
+
+            const DATA = @Json.Serialize(traffic);
+            const SERIES = [
+                { key: 'incoming', label: 'Gelen', color: '#8B7FD6' },
+                { key: 'outgoing', label: 'Gönderilen', color: '#7FB2F0' }
+            ];
+            const NS = 'http://www.w3.org/2000/svg';
+            const box = $('#dbChart'), svg = $('#dbChartSvg'), tip = $('#dbChartTip'), empty = $('#dbChartEmpty'), legend = $('#dbLegend');
+            const state = { range: 7, hidden: new Set() };
+            let hover = null;
+
+            legend.innerHTML = SERIES.map(s =>
+                `<button type="button" class="db-legend-item" data-series="${s.key}" aria-pressed="true"><span class="sw" style="background:${s.color}"></span> ${s.label} <b data-total="${s.key}">0</b></button>`
+            ).join('');
+
+            const parseDay = s => { const [y, mo, d] = s.split('-').map(Number); return new Date(y, mo - 1, d); };
+            const fmtShort = d => d.toLocaleDateString('tr-TR', state.range === 7 ? { weekday: 'short' } : { day: 'numeric', month: 'short' });
+            const fmtLong = d => d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
+            const num = v => v.toLocaleString('tr-TR');
+
+            function el(name, attrs, parent) {
+                const n = document.createElementNS(NS, name);
+                Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+                parent.appendChild(n);
+                return n;
+            }
+
+            function niceMax(v) {
+                if (v <= 4) return 4;
+                const step = Math.pow(10, Math.floor(Math.log10(v / 4)));
+                return [1, 2, 5, 10].map(f => f * step).find(s => s * 4 >= v) * 4;
+            }
+
+            function showDay(r, i, x, y, visible, W, ih, P) {
+                hover.guide.setAttribute('x1', x(i));
+                hover.guide.setAttribute('x2', x(i));
+                hover.guide.setAttribute('visibility', 'visible');
+                visible.forEach((s, k) => {
+                    hover.dots[k].setAttribute('cx', x(i));
+                    hover.dots[k].setAttribute('cy', y(r[s.key]));
+                    hover.dots[k].setAttribute('visibility', 'visible');
+                });
+                tip.innerHTML = `<div class="d">${fmtLong(r.day)}</div>` +
+                    visible.map(s => `<div class="r"><i style="background:${s.color}"></i>${s.label}<b>${num(r[s.key])}</b></div>`).join('');
+                tip.hidden = false;
+                const top = Math.min(...visible.map(s => y(r[s.key])), P.t + ih);
+                const half = tip.offsetWidth / 2 + 4;
+                tip.style.left = `${Math.min(Math.max(x(i), half), W - half)}px`;
+                tip.style.top = `${Math.max(top, tip.offsetHeight + 16)}px`;
+            }
+
+            function draw() {
+                const rows = DATA.slice(-state.range).map(r => ({ ...r, day: parseDay(r.date) }));
+                const visible = SERIES.filter(s => !state.hidden.has(s.key));
+
+                SERIES.forEach(s => {
+                    $(`[data-total="${s.key}"]`, legend).textContent = num(rows.reduce((a, r) => a + r[s.key], 0));
+                });
+
+                const hasData = rows.some(r => r.incoming + r.outgoing > 0);
+                empty.hidden = hasData;
+                svg.style.visibility = hasData ? 'visible' : 'hidden';
+                tip.hidden = true;
+                svg.replaceChildren();
+                hover = null;
+                if (!hasData) return;
+
+                const W = box.clientWidth, H = box.clientHeight;
+                const P = { l: 32, r: 10, t: 12, b: 26 };
+                const iw = W - P.l - P.r, ih = H - P.t - P.b;
+                svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+                const maxV = niceMax(Math.max(1, ...rows.flatMap(r => visible.map(s => r[s.key]))));
+                const x = i => P.l + (rows.length === 1 ? iw / 2 : (i * iw) / (rows.length - 1));
+                const y = v => P.t + ih - (v / maxV) * ih;
+
+                const defs = el('defs', {}, svg);
+                SERIES.forEach(s => {
+                    const g = el('linearGradient', { id: `dbg-${s.key}`, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+                    el('stop', { offset: '0%', 'stop-color': s.color, 'stop-opacity': .22 }, g);
+                    el('stop', { offset: '100%', 'stop-color': s.color, 'stop-opacity': 0 }, g);
+                });
+
+                for (let i = 0; i <= 4; i++) {
+                    const v = (maxV / 4) * i, yy = y(v);
+                    el('line', { class: 'grid', x1: P.l, x2: W - P.r, y1: yy, y2: yy }, svg);
+                    el('text', { class: 'ax', x: P.l - 8, y: yy + 4, 'text-anchor': 'end' }, svg).textContent = num(v);
+                }
+
+                const last = rows.length - 1;
+                rows.forEach((r, i) => {
+                    if (state.range === 30 && i !== last && (i % 5 !== 0 || last - i < 3)) return;
+                    el('text', { class: 'ax', x: x(i), y: H - 6, 'text-anchor': 'middle' }, svg).textContent = fmtShort(r.day);
+                });
+
+                visible.forEach(s => {
+                    const line = rows.map((r, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(r[s.key]).toFixed(1)}`).join(' ');
+                    el('path', { d: `${line} L${x(last)},${y(0)} L${x(0)},${y(0)} Z`, fill: `url(#dbg-${s.key})` }, svg);
+                    el('path', { class: 'line', d: line, stroke: s.color }, svg);
+                });
+
+                hover = {
+                    guide: el('line', { class: 'guide', y1: P.t, y2: P.t + ih, visibility: 'hidden' }, svg),
+                    dots: visible.map(s => el('circle', { class: 'dot', r: 4.5, fill: s.color, visibility: 'hidden' }, svg))
+                };
+
+                const colW = iw / Math.max(1, last);
+                rows.forEach((r, i) => {
+                    el('rect', { class: 'hit', x: x(i) - colW / 2, y: P.t, width: colW, height: ih }, svg)
+                        .addEventListener('mouseenter', () => showDay(r, i, x, y, visible, W, ih, P));
+                });
+            }
+
+            svg.addEventListener('mouseleave', () => {
+                tip.hidden = true;
+                if (!hover) return;
+                hover.guide.setAttribute('visibility', 'hidden');
+                hover.dots.forEach(d => d.setAttribute('visibility', 'hidden'));
+            });
+
+            $('#dbRange').addEventListener('click', e => {
+                const b = e.target.closest('[data-range]');
+                if (!b) return;
+                state.range = +b.dataset.range;
+                $$('[data-range]', e.currentTarget).forEach(x => {
+                    x.classList.toggle('active', x === b);
+                    x.setAttribute('aria-pressed', x === b);
+                });
+                draw();
+            });
+
+            legend.addEventListener('click', e => {
+                const b = e.target.closest('[data-series]');
+                if (!b) return;
+                const k = b.dataset.series;
+                if (!state.hidden.has(k) && state.hidden.size === SERIES.length - 1) return;
+                state.hidden.has(k) ? state.hidden.delete(k) : state.hidden.add(k);
+                b.classList.toggle('off', state.hidden.has(k));
+                b.setAttribute('aria-pressed', !state.hidden.has(k));
+                draw();
+            });
+
+            let resizeTimer;
+            new ResizeObserver(() => { clearTimeout(resizeTimer); resizeTimer = setTimeout(draw, 80); }).observe(box);
+
+            draw();
+        })();
+    </script>
+}

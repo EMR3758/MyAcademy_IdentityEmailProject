@@ -4,10 +4,8 @@
 
 namespace MyAcademy_IdentityEmailProject.Migrations
 {
-    /// <inheritdoc />
     public partial class AddMessageFavorites : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -48,7 +46,6 @@ namespace MyAcademy_IdentityEmailProject.Migrations
                 column: "UserId");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

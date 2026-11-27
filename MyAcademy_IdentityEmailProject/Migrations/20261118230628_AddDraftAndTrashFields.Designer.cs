@@ -15,7 +15,6 @@ namespace MyAcademy_IdentityEmailProject.Migrations
     [Migration("20261118230628_AddDraftAndTrashFields")]
     partial class AddDraftAndTrashFields
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
