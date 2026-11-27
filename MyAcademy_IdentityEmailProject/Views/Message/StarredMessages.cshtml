@@ -118,7 +118,6 @@
                         <form asp-controller="Message"
                               asp-action="ToggleFavorite"
                               method="post">
-                            @* AntiForgeryToken'ı Form Tag Helper otomatik ekler *@
                             <input type="hidden"
                                    name="id"
                                    value="@m.MessageId" />
@@ -197,7 +196,6 @@
 
 @section Scripts {
     <script>
-        /* Satıra tıklayınca mesaj detayına git (yıldız formu hariç) — Gelen Kutusu ile aynı davranış */
         (function () {
             var list = document.getElementById('msgList');
             if (!list) return;

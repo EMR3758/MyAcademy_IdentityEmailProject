@@ -2,20 +2,16 @@
 @{
     Layout = null;
 
-    // Alan bazlı hata durumları (input'u kırmızı çerçeveyle işaretlemek için)
     var usernameInvalid = ViewData.ModelState["Username"]?.Errors.Count > 0;
     var passwordInvalid = ViewData.ModelState["Password"]?.Errors.Count > 0;
 
-    // Controller'ın ModelState.AddModelError(string.Empty, ...) ile eklediği genel hatalar
     var hasModelErrors = ViewData.ModelState[string.Empty]?.Errors.Count > 0;
 
-    // RegisterController.VerifyEmail başarılı olduğunda TempData ile gelen mesaj
     var successMessage = TempData["SuccessMessage"] as string;
 }
 
 <!DOCTYPE html>
 <html lang="tr">
-@* SignUp ile aynı <head>: Bootstrap, Bootstrap Icons, Plus Jakarta Sans ve Mailora tema CSS'i *@
 @await Component.InvokeAsync("_RegisterStyleComponentPartial")
 
 <body>
@@ -27,10 +23,8 @@
 
             @await Component.InvokeAsync("_RegisterBrandComponentPartial")
 
-            <!-- Sağ: giriş formu -->
             <section class="auth-form-wrap">
                 <style>
-                    /* Yalnızca giriş sayfasına özgü küçük ekler; geri kalan her şey ortak tema CSS'inden gelir */
                     .notice {
                         display: flex;
                         gap: 10px;
@@ -142,7 +136,6 @@
 
     <script>
         (() => {
-            // Ortak <head> bileşeni "Kayıt Ol" başlığını taşıdığı için sekme başlığı burada düzeltilir
             document.title = 'Giriş Yap · Mailora';
 
             const pwd = document.getElementById('@Html.IdFor(m => m.Password)');
@@ -151,7 +144,6 @@
             const form = document.getElementById('loginForm');
             const btn = document.getElementById('loginBtn');
 
-            // Şifreyi göster / gizle
             eye.addEventListener('click', () => {
                 const show = pwd.type === 'password';
                 pwd.type = show ? 'text' : 'password';
@@ -163,15 +155,13 @@
                 pwd.focus();
             });
 
-            // Caps Lock uyarısı
             const checkCaps = e => caps.classList.toggle('show', !!e.getModifierState && e.getModifierState('CapsLock'));
             pwd.addEventListener('keydown', checkCaps);
             pwd.addEventListener('keyup', checkCaps);
             pwd.addEventListener('blur', () => caps.classList.remove('show'));
 
-            // Gönderim sırasında çift tıklamayı önle (submit yalnızca tarayıcı doğrulaması geçince tetiklenir)
             const btnHtml = btn.innerHTML;
-            window.addEventListener('pageshow', () => { btn.disabled = false; btn.innerHTML = btnHtml; });   // "geri" ile dönülünce
+            window.addEventListener('pageshow', () => { btn.disabled = false; btn.innerHTML = btnHtml; });
             form.addEventListener('submit', () => {
                 pwd.type = 'password';
                 btn.disabled = true;

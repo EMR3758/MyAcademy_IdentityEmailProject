@@ -15,7 +15,6 @@ namespace MyAcademy_IdentityEmailProject.Migrations
     [Migration("20261120141918_AddVerificationCodeExpiry")]
     partial class AddVerificationCodeExpiry
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

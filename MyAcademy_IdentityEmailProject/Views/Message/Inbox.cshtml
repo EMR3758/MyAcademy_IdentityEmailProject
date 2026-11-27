@@ -5,7 +5,7 @@
 @using System.Text.RegularExpressions
 @{
     ViewData["Title"] = "Gelen Kutusu";
-    ViewData["ActiveMenu"] = "inbox";          // Sidebar'daki data-page="inbox" / data-menu="inbox" linkini aktif yapar
+    ViewData["ActiveMenu"] = "inbox";
     Layout = "~/Views/MessageLayout/Index.cshtml";
 
     var messages = (Model ?? new List<MyAcademy_IdentityEmailProject.Entities.Message>())
@@ -14,8 +14,9 @@
     var unreadCount = messages.Count(m => !m.IsRead);
     var userEmail = User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name ?? "";
 
-    // Kullanıcının yıldızladığı mesajlar (MessageController.Inbox → MessageFavorites)
     var favoriteIds = new HashSet<int>((ViewBag.FavoriteMessageIds as List<int>) ?? new List<int>());
+
+    var successMessage = TempData["SuccessMessage"] as string;
 }
 @functions {
     static readonly CultureInfo Tr = new("tr-TR");
@@ -28,7 +29,6 @@
         return string.Concat(parts.Take(2).Select(p => p[0])).ToUpper(Tr);
     }
 
-    // Aynı gönderen her zaman aynı renkte görünür
     static string AvatarColor(string? key)
     {
         var h = 0;
@@ -36,7 +36,6 @@
         return AvatarColors[h % AvatarColors.Length];
     }
 
-    // HTML içerikten tek satırlık düz metin özet
     static string Snippet(string? html, int max = 140)
     {
         if (string.IsNullOrWhiteSpace(html)) return "";
@@ -53,7 +52,6 @@
         _ => "tag-sistem"
     };
 
-    // Bugün → 10:42 · Dün → Dün · Bu yıl → 4 Kas · Eski → 12.03.2025
     static string ShortTime(DateTime d)
     {
         var today = DateTime.Today;
@@ -70,7 +68,6 @@
 
     <div class="panel list-panel">
 
-        <!-- Başlık + arama + filtreler -->
         <div class="list-head">
             <div class="list-title">
                 <div>
@@ -90,7 +87,6 @@
             </div>
         </div>
 
-        <!-- Toplu işlemler -->
         <div class="bulk-bar">
             <input type="checkbox" class="m-check" id="checkAll" aria-label="Tümünü seç">
             <span class="sel-info" id="selInfo">Tümünü seç</span>
@@ -101,7 +97,6 @@
             <button type="button" class="tool-btn" id="refreshBtn" title="Yenile"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
 
-        <!-- Mesaj listesi (sunucu tarafında oluşturulur) -->
         <div class="msg-list" id="msgList">
             @foreach (var m in messages)
             {
@@ -115,8 +110,6 @@
                          data-href="@detailUrl"
                          data-unread="@(m.IsRead ? "0" : "1")"
                          data-starred="@(isStarred ? "1" : "0")"
-                    @*   data-attach="@(m.AttachmentCount > 0 ? "1" : "0")"
-                         data-tag="@m.Label" *@
                          data-search="@search"
                          tabindex="0" title="Mesajı aç">
                     <div class="lead">
@@ -139,28 +132,16 @@
                         <span class="subject">@m.Subject</span>
                         <span class="snippet">@snippet</span>
                     </div>
-                    @* <div class="mi-meta">
-                        @if (!string.IsNullOrEmpty(m.Label))
-                        {
-                            <span class="tag @LabelClass(m.Label)">@m.Label</span>
-                        }
-                        @if (m.AttachmentCount > 0)
-                        {
-                            <i class="bi bi-paperclip attach-ic" title="@m.AttachmentCount ek"></i>
-                        }
-                    </div> *@
                     <span class="time" title="@(m.SendDate.ToString("d MMMM yyyy, dddd HH:mm", Tr))">@ShortTime(m.SendDate)</span>
                 </article>
             }
 
-            <!-- Gelen kutusu tamamen boşsa -->
             <div class="empty-list" id="emptyInbox" hidden="@(messages.Any() ? "hidden" : null)">
                 <div class="ic"><i class="bi bi-inbox"></i></div>
                 <h6>Gelen kutunuz boş</h6>
                 <div>Yeni mesajlar geldiğinde burada listelenecek.</div>
             </div>
 
-            <!-- Filtre / arama sonucu boşsa -->
             <div class="empty-list" id="noResults" hidden>
                 <div class="ic"><i class="bi bi-search-heart"></i></div>
                 <h6>Sonuç bulunamadı</h6>
@@ -168,7 +149,6 @@
             </div>
         </div>
 
-        <!-- Sayfalama -->
         <div class="list-foot">
             <span class="range" id="rangeInfo"></span>
             <div class="pager" id="pager"></div>
@@ -179,21 +159,14 @@
 
 @section Scripts {
     <script>
-        /* ======================================================================
-           GELEN KUTUSU — liste sunucudan gelir; filtreleme, arama, sayfalama,
-           seçim ve yıldız/okundu işlemleri tarayıcıda yapılır.
-           ====================================================================== */
         (() => {
             const { $, $$, showToast, setBadge } = window.Mailora;
 
-            /* Backend action'ları hazır olunca URL'leri girin (POST, AntiForgery token otomatik eklenir).
-               Boş bırakılırsa işlemler yalnızca arayüzde uygulanır.
-               Gönderilen alanlar: star → id, starred | read/unread/delete → ids (çoklu) */
             const ENDPOINTS = {
-                star: '@Url.Action("ToggleFavorite", "Message")',   // MessageController.ToggleFavorite (id)
-                read: '',   // ör. '/Inbox/MarkAsRead'
-                unread: '',   // ör. '/Inbox/MarkAsUnread'
-                delete: ''    // ör. '/Inbox/Delete'
+                star: '@Url.Action("ToggleFavorite", "Message")',
+                read: '@Url.Action("MarkMessagesRead", "Message")',
+                unread: '@Url.Action("MarkMessagesUnread", "Message")',
+                delete: '@Url.Action("MoveToTrash", "Message")'
             };
             const PER_PAGE = 10;
 
@@ -213,7 +186,6 @@
             const rowId = r => +r.dataset.id;
             const isOn = (r, key) => r.dataset[key] === '1';
 
-            /* --- Sunucuya istek --- */
             function post(url, data) {
                 if (!url) return Promise.resolve();
                 const body = new URLSearchParams();
@@ -224,7 +196,6 @@
                     .then(r => { if (!r.ok) throw new Error(r.status); });
             }
 
-            /* --- Filtreleme & sayfalama --- */
             function matches(r) {
                 if (state.filter === 'unread' && !isOn(r, 'unread')) return false;
                 if (state.filter === 'starred' && !isOn(r, 'starred')) return false;
@@ -243,7 +214,6 @@
                 return all.slice(start, start + PER_PAGE);
             }
 
-            /* --- Ana çizim --- */
             function render() {
                 const all = filtered();
                 const visible = new Set(pageRows(all));
@@ -260,7 +230,6 @@
                 $('#emptyInbox').hidden = total > 0;
                 $('#noResults').hidden = total === 0 || all.length > 0;
 
-                // Sayaçlar
                 const unread = rows().filter(r => isOn(r, 'unread')).length;
                 const starred = rows().filter(r => isOn(r, 'starred')).length;
                 const sub = $('#inboxSub');
@@ -334,7 +303,6 @@
                 ['#bulkRead', '#bulkUnread', '#bulkDelete'].forEach(s => { $(s).disabled = !n; });
             }
 
-            /* --- Satır durumları --- */
             function setUnread(r, on) {
                 r.dataset.unread = on ? '1' : '0';
                 r.classList.toggle('unread', on);
@@ -353,7 +321,6 @@
                 $('i', btn).className = `bi ${on ? 'bi-star-fill' : 'bi-star'}`;
             }
 
-            /* --- İşlemler --- */
             function toggleStar(r) {
                 const on = !isOn(r, 'starred');
                 const btn = $('.star-btn', r);
@@ -381,7 +348,19 @@
                 });
             }
 
-            // Silme: 5 sn "Geri Al" imkânı, sonra sunucuya gönderilir
+            const pendingTrash = new Set();
+            window.addEventListener('pagehide', () => {
+                if (!pendingTrash.size || !ENDPOINTS.delete || !navigator.sendBeacon) return;
+                const token = $('input[name="__RequestVerificationToken"]')?.value;
+                pendingTrash.forEach(id => {
+                    const fd = new FormData();
+                    fd.append('id', id);
+                    if (token) fd.append('__RequestVerificationToken', token);
+                    navigator.sendBeacon(ENDPOINTS.delete, fd);
+                });
+                pendingTrash.clear();
+            });
+
             function deleteRows(ids) {
                 const targets = rows().filter(r => ids.includes(rowId(r)));
                 if (!targets.length) return;
@@ -393,19 +372,30 @@
                     label: 'Geri Al',
                     onClick: () => {
                         undone = true;
+                        pendingIds.forEach(id => pendingTrash.delete(id));
                         targets.forEach(r => delete r.dataset.removed);
                         render();
                         showToast('İşlem geri alındı.', 'bi-arrow-counterclockwise');
                     }
                 });
 
+                const pendingIds = targets.map(rowId);
+                pendingIds.forEach(id => pendingTrash.add(id));
+
                 setTimeout(() => {
+                    pendingIds.forEach(id => pendingTrash.delete(id));
                     if (undone) return;
-                    post(ENDPOINTS.delete, { ids: targets.map(rowId) })
-                        .then(() => targets.forEach(r => r.remove()))
-                        .catch(() => {
-                            targets.forEach(r => delete r.dataset.removed); render();
-                            showToast('Mesajlar silinemedi.', 'bi-exclamation-circle');
+                    Promise.allSettled(targets.map(r => post(ENDPOINTS.delete, { id: rowId(r) })))
+                        .then(results => {
+                            let failed = 0;
+                            results.forEach((res, i) => {
+                                if (res.status === 'fulfilled') targets[i].remove();
+                                else { delete targets[i].dataset.removed; failed++; }
+                            });
+                            if (failed) {
+                                render();
+                                showToast(`${failed} mesaj çöp kutusuna taşınamadı.`, 'bi-exclamation-circle');
+                            }
                         });
                 }, 5200);
             }
@@ -415,7 +405,6 @@
                 if (r.dataset.href) location.href = r.dataset.href;
             }
 
-            /* --- Arama (liste + navbar senkron) --- */
             const search = $('#listSearch');
             const globalSearch = $('#globalSearch');
 
@@ -428,7 +417,6 @@
                 render();
             }
 
-            /* --- Olaylar --- */
             search.addEventListener('input', e => setQuery(e.target.value, 'list'));
             $('#listSearchClear').addEventListener('click', () => { setQuery('', 'clear'); search.focus(); });
 
@@ -483,7 +471,6 @@
                 if (r && e.key === 'Enter' && !e.target.closest('input, button')) openRow(r);
             });
 
-            // Klavye ile gezinme: j / ↓ sonraki, k / ↑ önceki, Enter aç
             function moveCursor(dir) {
                 const list = filtered();
                 if (!list.length) return;
@@ -502,12 +489,13 @@
                 if (e.key === 'k' || e.key === 'ArrowUp') { e.preventDefault(); moveCursor(-1); }
             });
 
-            /* --- Layout bağlantıları (navbar arama + sidebar etiketleri) --- */
             window.Mailora.onSearch = value => setQuery(value, 'global');
             window.Mailora.onLabel = label => { state.label = label; state.page = 1; render(); };
 
-            /* --- Başlangıç --- */
             setQuery(state.query, 'init');
+
+            const successMessage = @Json.Serialize(successMessage);
+            if (successMessage) showToast(successMessage, 'bi-trash3');
         })();
     </script>
 }

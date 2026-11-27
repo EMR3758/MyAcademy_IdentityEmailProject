@@ -4,7 +4,6 @@
 @using System.Security.Claims
 @using System.Text.RegularExpressions
 @{
-    // MessageController.Detail — erişim (gönderen/alıcı) ve okundu işaretlemesi controller'da yapılır
     var userEmail = User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name ?? "";
     var isIncoming = string.Equals(Model.ReceiverEmail, userEmail, StringComparison.OrdinalIgnoreCase);
     var isFavorite = ViewBag.IsFavorite is bool b && b;
@@ -13,7 +12,6 @@
     ViewData["ActiveMenu"] = isIncoming ? "inbox" : "sent";
     Layout = "~/Views/MessageLayout/Index.cshtml";
 
-    // Gelen mesajda karşı taraf gönderen, giden mesajda alıcıdır
     var contactEmail = isIncoming ? Model.SenderEmail : Model.ReceiverEmail;
     var backAction = isIncoming ? "Inbox" : "SendBox";
     var backText = isIncoming ? "Gelen Kutusu" : "Gönderilenler";
@@ -36,8 +34,6 @@
         return AvatarColors[h % AvatarColors.Length];
     }
 
-    // Mesaj içeriği editörden HTML olarak gelir. Güvenlik için (XSS) HTML olarak basılmaz;
-    // satır/paragraf yapısı korunarak düz metne çevrilir ve Razor tarafından encode edilir.
     static string BodyText(string? html)
     {
         if (string.IsNullOrWhiteSpace(html)) return "";
@@ -60,11 +56,23 @@
         <a class="btn-soft mp-back" asp-controller="Message" asp-action="@backAction">
             <i class="bi bi-arrow-left" aria-hidden="true"></i> <span>@backText</span>
         </a>
+
+        @if (!Model.IsDraft)
+        {
+            <div class="mp-toolbar">
+                <form asp-controller="Message" asp-action="MoveToTrash" method="post">
+                    <input type="hidden" name="id" value="@Model.MessageId" />
+                    <input type="hidden" name="returnUrl" value="@Url.Action(backAction, "Message")" />
+                    <button type="submit" class="tool-btn" title="Çöp kutusuna taşı" aria-label="Çöp kutusuna taşı">
+                        <i class="bi bi-trash3" aria-hidden="true"></i>
+                    </button>
+                </form>
+            </div>
+        }
     </div>
 
     <div class="mp-grid">
 
-        <!-- Mesaj -->
         <article class="mp-card" aria-labelledby="mpSubject">
             <div class="pv-subject-row">
                 <h1 class="pv-subject" id="mpSubject">@(string.IsNullOrWhiteSpace(Model.Subject) ? "(Konu yok)" : Model.Subject)</h1>
@@ -96,7 +104,6 @@
             <div class="pv-body as-text">@BodyText(Model.MessageDetail)</div>
         </article>
 
-        <!-- Yan bilgi -->
         <aside class="mp-side">
             <div class="mp-side-card">
                 <h6>@(isIncoming ? "Gönderen" : "Alıcı")</h6>

@@ -2,18 +2,16 @@
 @using System.Globalization
 @{
     ViewData["Title"] = "Profilim";
-    ViewData["ActiveMenu"] = "profile";   // Sidebar'daki data-page="profile" linkini aktif yapar
+    ViewData["ActiveMenu"] = "profile";
     Layout = "~/Views/MessageLayout/Index.cshtml";
 
     var tr = new CultureInfo("tr-TR");
 
-    // Görünen ad: Ad Soyad → yoksa kullanıcı adı
     var fullName = string.Join(" ", new[] { Model.Name, Model.Surname }
                                    .Where(s => !string.IsNullOrWhiteSpace(s))
                                    .Select(s => s!.Trim()));
     var displayName = string.IsNullOrWhiteSpace(fullName) ? (Model.Username ?? "Kullanıcı") : fullName;
 
-    // Avatar baş harfleri (fotoğraf yoksa ya da yüklenemezse gösterilir)
     var initials = string.Concat(new[] { Model.Name, Model.Surname }
                                  .Where(s => !string.IsNullOrWhiteSpace(s))
                                  .Select(s => s!.Trim()[0]));
@@ -26,33 +24,24 @@
     var hasImage = !string.IsNullOrWhiteSpace(Model.ImageUrl);
     var hasDescription = !string.IsNullOrWhiteSpace(Model.Description);
 
-    // Şifre değişikliği sonucu (yalnızca ChangePassword başarılı olduğunda dolu gelir) → Hesap Güvenliği kartında
     var passwordSuccessMessage = TempData["PasswordSuccessMessage"] as string;
     var passwordChangedAt = TempData["PasswordChangedAt"] as string;
 
-    // Genel mesajlar → sayfanın üstünde gösterilir.
-    // SuccessMessage: UpdateProfile / UploadProfilePhoto, ErrorMessage: ChangePassword / UploadProfilePhoto.
-    // Burada okunmaları gerekir; okunmayan TempData bir sonraki sayfaya (ör. SignIn) taşınır.
     var successMessage = TempData["SuccessMessage"] as string;
     var errorMessage = TempData["ErrorMessage"] as string;
 
-    // UpdateProfile'ın ModelState'e eklediği model düzeyindeki hatalar (ör. UpdateAsync hataları)
     var hasModelErrors = ViewData.ModelState.TryGetValue(string.Empty, out var modelEntry) && modelEntry.Errors.Count > 0;
 
-    // Alan hatalıysa mevcut .pf-field.has-error stilini uygular
     string FieldClass(string key, string css = "pf-field") =>
         ViewData.ModelState.TryGetValue(key, out var e) && e.Errors.Count > 0 ? css + " has-error" : css;
 }
 
-@* Profil sayfasına özel düzenlemeler — temel profil stilleri _MessageLayoutStyleComponentPartial (6d) içinde *@
 <style>
-    /* ---------- Genel ritim ---------- */
     .profile { max-width: 1200px; }
     .pf-head { margin-bottom: 16px; }
     .pf-hero { margin-bottom: 18px; }
     .pf-grid, .pf-col { gap: 18px; }
 
-    /* ---------- Bildirimler ---------- */
     .pf-flash { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
     .pf-note.ok  { background: var(--mint); color: #3E9A77; }
     .pf-note.err { background: var(--rose); color: #C2476B; }
@@ -67,9 +56,7 @@
     }
     .pf-note-close:hover { opacity: 1; background: rgba(255, 255, 255, .55); }
 
-    /* ---------- Profil başlığı ----------
-       Banner 140px · avatar 112px (yarısı banner'da, yarısı beyaz alanda) · beyaz alan ≈ 92px */
-    .pf-avatar > * { grid-area: 1 / 1; }                    /* fotoğraf ve baş harfler aynı hücrede üst üste */
+    .pf-avatar > * { grid-area: 1 / 1; }
     .pf-avatar img { position: relative; z-index: 1; }
 
     .pf-hero .pf-cover { height: 140px; }
@@ -86,7 +73,6 @@
     .pf-hero .pf-meta i { color: #A6A9B8; font-size: 14px; }
     .pf-hero .pf-hero-actions { padding: 18px 0 0; }
 
-    /* ---------- Kartlar ---------- */
     .pf-card { border: 1px solid #F1F0F8; }
     .pf-card-head { padding: 18px 22px 0; }
     .pf-card-head .ic { width: 38px; height: 38px; border-radius: 11px; font-size: 17px; }
@@ -95,7 +81,6 @@
     .pf-card-foot { padding: 14px 22px; justify-content: flex-end; }
     .pf-card-foot .btn-send { padding: 10px 18px; font-size: 13.5px; border-radius: 12px; }
 
-    /* ---------- Form alanları ---------- */
     .pf-form-grid { gap: 14px 16px; }
     .pf-sub {
         grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-top: 6px;
@@ -111,12 +96,10 @@
     .pf-counter.is-near { color: #C8774A; font-weight: 600; }
     .pf-pw-fields { margin-top: 18px; }
 
-    /* ---------- Hesap güvenliği ---------- */
     .pf-list.boxed { background: var(--bg); border-radius: 12px; padding: 2px 14px; }
     .pf-list.boxed li, .pf-list.boxed li:first-child, .pf-list.boxed li:last-child { padding: 11px 0; }
     .pf-list.boxed .v { word-break: break-all; }
 
-    /* ---------- Hakkımda ---------- */
     .pf-about {
         margin: 0; padding: 14px 16px; border-radius: 12px; background: var(--bg); border-left: 3px solid var(--accent);
         font-size: 14.5px; line-height: 1.75; color: var(--text); white-space: pre-line; word-break: break-word;
@@ -127,7 +110,6 @@
     }
     .pf-empty > i { font-size: 22px; color: #C4BEEA; }
 
-    /* ---------- Profil fotoğrafı ---------- */
     .pf-photo { display: flex; align-items: center; gap: 16px; padding: 14px; border-radius: 14px; background: var(--bg); }
     .pf-photo .avatar { width: 72px; height: 72px; font-size: 24px; border-width: 3px; }
     .pf-photo .tx { flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
@@ -167,13 +149,10 @@
     }
     .pf-file-clear:hover { background: var(--lavender); color: var(--accent-dark); }
 
-    /* ---------- Responsive ---------- */
     @@media (min-width: 768px) and (max-width: 1199.98px) {
-        /* Tablet: tek sütunda sağ sütundaki iki kart yan yana */
         .pf-grid > .pf-col + .pf-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
     }
     @@media (max-width: 767.98px) {
-        /* Mobil başlık: avatar ortada, altında isim ve bilgiler, tam genişlik buton */
         .pf-hero .pf-cover { height: 104px; }
         .pf-hero .pf-main { margin-top: 0; padding: 0 16px 20px; gap: 12px; align-items: center; }
         .pf-hero .pf-avatar-wrap { margin-top: -52px; }
@@ -192,13 +171,11 @@
 
 <div class="profile">
 
-    <!-- Sayfa başlığı -->
     <div class="pf-head">
         <h1>Profilim</h1>
         <p>Kişisel bilgilerini, profil fotoğrafını ve hesap güvenliğini buradan yönet.</p>
     </div>
 
-    <!-- Genel bildirimler (profil güncelleme, fotoğraf yükleme, şifre hatası) -->
     @if (!string.IsNullOrEmpty(successMessage) || !string.IsNullOrEmpty(errorMessage))
     {
         <div class="pf-flash">
@@ -225,9 +202,6 @@
         </div>
     }
 
-    <!-- =========================================================
-         ÜST PROFİL KARTI
-         ========================================================= -->
     <section class="pf-hero" aria-label="Profil özeti">
         <div class="pf-cover">
             <span class="pf-cover-chip"><i class="bi bi-envelope-paper-heart" aria-hidden="true"></i> Mailora hesabı</span>
@@ -269,15 +243,10 @@
         </div>
     </section>
 
-    <!-- =========================================================
-         İÇERİK KARTLARI
-         ========================================================= -->
     <div class="pf-grid">
 
-        <!-- Sol sütun -->
         <div class="pf-col">
 
-            <!-- Kişisel bilgiler (ProfileController.UpdateProfile) -->
             <section class="pf-card" id="pf-info" aria-labelledby="pfInfoTitle">
                 <div class="pf-card-head">
                     <div class="ic av-lav"><i class="bi bi-person-vcard" aria-hidden="true"></i></div>
@@ -401,7 +370,6 @@
                 </form>
             </section>
 
-            <!-- Hesap güvenliği & şifre değiştirme (ProfileController.ChangePassword) -->
             <section class="pf-card" id="pf-security" aria-labelledby="pfSecTitle">
                 <div class="pf-card-head">
                     <div class="ic av-mint"><i class="bi bi-shield-lock" aria-hidden="true"></i></div>
@@ -481,10 +449,8 @@
             </section>
         </div>
 
-        <!-- Sağ sütun -->
         <div class="pf-col">
 
-            <!-- Hakkımda önizlemesi — kaydedilmiş açıklamayı gösterir -->
             <section class="pf-card" aria-labelledby="pfAboutTitle">
                 <div class="pf-card-head">
                     <div class="ic av-peach"><i class="bi bi-chat-quote" aria-hidden="true"></i></div>
@@ -509,7 +475,6 @@
                 </div>
             </section>
 
-            <!-- Profil fotoğrafı (ProfileController.UploadProfilePhoto) -->
             <section class="pf-card" id="pf-photo" aria-labelledby="pfPhotoTitle">
                 <div class="pf-card-head">
                     <div class="ic av-blue"><i class="bi bi-image" aria-hidden="true"></i></div>
@@ -591,9 +556,7 @@
 
 @section Scripts {
     <script>
-        /* Profilim — yalnızca bu sayfaya ait küçük arayüz yardımcıları (form gönderimini değiştirmez) */
         (function () {
-            /* Hakkımda karakter sayacı */
             var desc = document.getElementById('pfDescription');
             var counter = document.getElementById('pfDescCount');
             if (desc && counter) {
@@ -607,7 +570,6 @@
                 updateCount();
             }
 
-            /* Fotoğraf seçimi: dosya adı, boyut ve önizleme */
             var input = document.getElementById('profilePhoto');
             var info = document.getElementById('pfFileInfo');
             var nameEl = document.getElementById('pfFileName');
@@ -617,7 +579,7 @@
             var tag = document.getElementById('pfPreviewTag');
             if (!input || !info || !preview) return;
 
-            var MAX_SIZE = 2 * 1024 * 1024;     // ProfileController.MaxPhotoSize ile aynı
+            var MAX_SIZE = 2 * 1024 * 1024;
             var originalImg = preview.querySelector('img');
             var originalSrc = originalImg ? originalImg.getAttribute('src') : null;
             var objectUrl = null;

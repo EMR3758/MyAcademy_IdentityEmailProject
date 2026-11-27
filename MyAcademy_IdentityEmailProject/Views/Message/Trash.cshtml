@@ -1,0 +1,364 @@
+﻿@model List<MyAcademy_IdentityEmailProject.Entities.Message>
+@using System.Globalization
+@using System.Net
+@using System.Security.Claims
+@using System.Text.RegularExpressions
+@{
+    ViewData["Title"] = "Çöp Kutusu";
+    ViewData["ActiveMenu"] = "trash";
+    Layout = "~/Views/MessageLayout/Index.cshtml";
+
+    var messages = (Model ?? new List<MyAcademy_IdentityEmailProject.Entities.Message>())
+                   .OrderByDescending(m => m.SendDate)
+                   .ToList();
+    var userEmail = User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name ?? "";
+
+    var successMessage = TempData["SuccessMessage"] as string;
+}
+@functions {
+    static readonly CultureInfo Tr = new("tr-TR");
+    static readonly string[] AvatarColors = { "av-lav", "av-blue", "av-mint", "av-rose", "av-peach", "av-sun" };
+
+    static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(parts.Take(2).Select(p => p[0])).ToUpper(Tr);
+    }
+
+    static string AvatarColor(string? key)
+    {
+        var h = 0;
+        foreach (var c in key ?? "") h = (h * 31 + c) & 0x7fffffff;
+        return AvatarColors[h % AvatarColors.Length];
+    }
+
+    static string Snippet(string? html, int max = 140)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return "";
+        var text = WebUtility.HtmlDecode(Regex.Replace(html, "<[^>]+>", " "));
+        text = Regex.Replace(text, @"\s+", " ").Trim();
+        return text.Length > max ? text[..max].TrimEnd() + "…" : text;
+    }
+
+    static string ShortTime(DateTime d)
+    {
+        var today = DateTime.Today;
+        if (d.Date == today) return d.ToString("HH:mm", Tr);
+        if (d.Date == today.AddDays(-1)) return "Dün";
+        if (d.Year == today.Year) return d.ToString("d MMM", Tr);
+        return d.ToString("dd.MM.yyyy", Tr);
+    }
+}
+
+<style>
+    .trash-box .msg-item { cursor: default; }
+    .trash-box .msg-item .lead { width: 18px; justify-content: center; color: #C9CBD6; font-size: 15px; }
+    .trash-box .msg-item .to-prefix { font-size: 12px; font-weight: 600; color: var(--muted); margin-right: 2px; }
+    .trash-box .msg-item .subject { color: var(--muted); }
+    .trash-box .msg-item .placeholder-text { font-style: italic; }
+    .trash-box .msg-item .avatar { opacity: .75; }
+    .trash-box .msg-item .mi-meta .tag i { font-size: 12px; }
+    .trash-box .trash-actions { display: flex; align-items: center; gap: 2px; }
+    .trash-box .trash-actions form { margin: 0; }
+    .trash-box .trash-actions .tool-btn.danger:hover { background: var(--rose); color: #C2476B; }
+    .trash-box .empty-list .ic { background: var(--rose); color: #C2476B; }
+    .trash-box .trash-note { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    @@media (max-width: 767.98px) {
+        .trash-box .mi-meta { justify-content: space-between; width: 100%; }
+        .trash-box .trash-actions .tool-btn { width: 36px; height: 36px; }
+        .trash-box .trash-note .txt { display: none; }
+    }
+</style>
+
+<section class="inbox trash-box" id="trashBox">
+
+    <div class="panel list-panel">
+
+        <div class="list-head">
+            <div class="list-title">
+                <div>
+                    <h1>Çöp Kutusu</h1>
+                    <div class="sub" id="trashSub">@messages.Count mesaj · Silinen mesajlarınız</div>
+                </div>
+                <span class="count-pill" id="trashPill">@messages.Count mesaj</span>
+            </div>
+
+            <div class="list-tools">
+                <div class="list-search" id="listSearchWrap">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="listSearch" placeholder="Kişi, konu veya içerik ara" autocomplete="off">
+                    <button class="clear" id="listSearchClear" type="button" aria-label="Temizle"><i class="bi bi-x-circle-fill"></i></button>
+                </div>
+                <div class="filter-chips" id="filterChips"></div>
+            </div>
+        </div>
+
+        <div class="bulk-bar">
+            <span class="sel-info" id="selInfo">Çöp kutusundaki mesajlar</span>
+            <span class="spacer"></span>
+            <span class="trash-note" title="Çöp kutusu durumu mesajın iki tarafı için ortaktır">
+                <i class="bi bi-info-circle"></i><span class="txt">Geri yükleme ve silme her iki taraf için geçerlidir</span>
+            </span>
+            <button type="button" class="tool-btn" id="refreshBtn" title="Yenile"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+
+        <div class="msg-list" id="msgList">
+            @foreach (var m in messages)
+            {
+                var isIncoming = string.Equals(m.ReceiverEmail, userEmail, StringComparison.OrdinalIgnoreCase);
+                var contact = isIncoming ? m.SenderEmail : m.ReceiverEmail;
+                var snippet = Snippet(m.MessageDetail);
+                var search = $"{m.SenderEmail} {m.ReceiverEmail} {m.Subject} {snippet}".ToLower(Tr);
+
+                <article class="msg-item"
+                         data-id="@m.MessageId"
+                         data-dir="@(isIncoming ? "in" : "out")"
+                         data-search="@search">
+                    <div class="lead" title="@(isIncoming ? "Gelen mesaj" : "Gönderilen mesaj")">
+                        <i class="bi @(isIncoming ? "bi-arrow-down-left" : "bi-arrow-up-right")"></i>
+                    </div>
+                    <span class="avatar @AvatarColor(contact)">@Initials(contact)</span>
+                    <div class="mi-sender">
+                        <span class="sender"><span class="to-prefix">@(isIncoming ? "Kimden:" : "Kime:")</span> @contact</span>
+                    </div>
+                    <div class="mi-main">
+                        @if (string.IsNullOrWhiteSpace(m.Subject))
+                        {
+                            <span class="subject placeholder-text">(Konu yok)</span>
+                        }
+                        else
+                        {
+                            <span class="subject">@m.Subject</span>
+                        }
+                        @if (!string.IsNullOrEmpty(snippet))
+                        {
+                            <span class="snippet">@snippet</span>
+                        }
+                    </div>
+                    <div class="mi-meta">
+                        @if (isIncoming)
+                        {
+                            <span class="tag tag-sistem"><i class="bi bi-inbox"></i> Gelen</span>
+                        }
+                        else
+                        {
+                            <span class="tag tag-is"><i class="bi bi-send"></i> Gönderilen</span>
+                        }
+
+                        <div class="trash-actions">
+                            <form asp-controller="Message" asp-action="RestoreMessage" method="post">
+                                <input type="hidden" name="id" value="@m.MessageId" />
+                                <button type="submit" class="tool-btn" title="Geri yükle" aria-label="Geri yükle">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            </form>
+
+                            <form asp-controller="Message" asp-action="PermanentDelete" method="post" class="js-perm-delete">
+                                <input type="hidden" name="id" value="@m.MessageId" />
+                                <button type="submit" class="tool-btn danger" title="Kalıcı olarak sil" aria-label="Kalıcı olarak sil">
+                                    <i class="bi bi-x-octagon"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <span class="time" title="@(m.SendDate.ToString("d MMMM yyyy, dddd HH:mm", Tr))">@ShortTime(m.SendDate)</span>
+                </article>
+            }
+
+            <div class="empty-list" id="emptyTrash" hidden="@(messages.Any() ? "hidden" : null)">
+                <div class="ic"><i class="bi bi-trash3"></i></div>
+                <h6>Çöp kutunuz boş</h6>
+                <div>Çöpe taşıdığınız mesajlar burada listelenir.</div>
+            </div>
+
+            <div class="empty-list" id="noResults" hidden>
+                <div class="ic"><i class="bi bi-search-heart"></i></div>
+                <h6>Sonuç bulunamadı</h6>
+                <div>Arama veya filtre kriterlerini değiştirmeyi deneyin.</div>
+            </div>
+        </div>
+
+        <div class="list-foot">
+            <span class="range" id="rangeInfo"></span>
+            <div class="pager" id="pager"></div>
+        </div>
+    </div>
+
+    <div class="cmp-dialog" id="deleteDialog" hidden>
+        <div class="cd-card" role="alertdialog" aria-modal="true" aria-labelledby="ddTitle" aria-describedby="ddText">
+            <div class="cd-ic"><i class="bi bi-exclamation-triangle"></i></div>
+            <h5 id="ddTitle">Mesaj kalıcı olarak silinsin mi?</h5>
+            <p id="ddText">Bu işlem geri alınamaz. Mesaj hem sizin hem de karşı tarafın kutusundan tamamen kaldırılır.</p>
+            <div class="cd-actions">
+                <button type="button" class="btn-soft" data-dialog="cancel">Vazgeç</button>
+                <button type="button" class="btn-soft danger-solid" data-dialog="ok"><i class="bi bi-trash3"></i> Kalıcı Olarak Sil</button>
+            </div>
+        </div>
+    </div>
+
+</section>
+
+@section Scripts {
+    <script>
+        (() => {
+            const { $, $$, showToast } = window.Mailora;
+            const PER_PAGE = 10;
+
+            const params = new URLSearchParams(location.search);
+            const state = {
+                filter: ['all', 'in', 'out'].includes(params.get('filter')) ? params.get('filter') : 'all',
+                query: params.get('q') || '',
+                page: 1
+            };
+
+            const listEl = $('#msgList');
+            const norm = s => (s || '').toLocaleLowerCase('tr-TR');
+            const rows = () => $$('.msg-item', listEl);
+
+            function matches(r) {
+                if (state.filter !== 'all' && r.dataset.dir !== state.filter) return false;
+                const q = norm(state.query.trim());
+                if (q && !r.dataset.search.includes(q)) return false;
+                return true;
+            }
+            const filtered = () => rows().filter(matches);
+            const pageCount = n => Math.max(1, Math.ceil(n / PER_PAGE));
+
+            function pageRows(all = filtered()) {
+                state.page = Math.min(Math.max(1, state.page), pageCount(all.length));
+                const start = (state.page - 1) * PER_PAGE;
+                return all.slice(start, start + PER_PAGE);
+            }
+
+            function render() {
+                const all = filtered();
+                const visible = new Set(pageRows(all));
+                const total = rows().length;
+
+                rows().forEach(r => { r.hidden = !visible.has(r); });
+
+                $('#emptyTrash').hidden = total > 0;
+                $('#noResults').hidden = total === 0 || all.length > 0;
+
+                $('#trashSub').textContent = `${total} mesaj · Silinen mesajlarınız`;
+                $('#trashPill').textContent = `${total} mesaj`;
+                $('#selInfo').textContent = state.query.trim() || state.filter !== 'all'
+                    ? `${all.length} mesaj gösteriliyor`
+                    : 'Çöp kutusundaki mesajlar';
+
+                renderPager(all);
+                renderChips();
+            }
+
+            function renderPager(all) {
+                const pc = pageCount(all.length);
+                const start = all.length ? (state.page - 1) * PER_PAGE + 1 : 0;
+                const end = Math.min(state.page * PER_PAGE, all.length);
+                $('#rangeInfo').textContent = `${start}–${end} / ${all.length} mesaj`;
+
+                let html = `<button type="button" data-p="prev" ${state.page === 1 ? 'disabled' : ''} aria-label="Önceki"><i class="bi bi-chevron-left"></i></button>`;
+                for (let i = 1; i <= pc; i++) html += `<button type="button" data-p="${i}" class="${i === state.page ? 'active' : ''}">${i}</button>`;
+                html += `<button type="button" data-p="next" ${state.page === pc ? 'disabled' : ''} aria-label="Sonraki"><i class="bi bi-chevron-right"></i></button>`;
+                $('#pager').innerHTML = html;
+            }
+
+            function renderChips() {
+                const all = rows();
+                const incoming = all.filter(r => r.dataset.dir === 'in').length;
+                const c = { all: all.length, in: incoming, out: all.length - incoming };
+                const chips = [['all', 'Tümü'], ['in', 'Gelen'], ['out', 'Gönderilen']];
+
+                $('#filterChips').innerHTML = chips.map(([k, t]) =>
+                    `<button type="button" class="chip ${state.filter === k ? 'active' : ''}" data-filter="${k}">${t}<span class="n">${c[k]}</span></button>`
+                ).join('');
+            }
+
+            const search = $('#listSearch');
+            const globalSearch = $('#globalSearch');
+
+            function setQuery(value, source) {
+                state.query = value;
+                state.page = 1;
+                if (source !== 'list') search.value = value;
+                if (source !== 'global' && globalSearch) globalSearch.value = value;
+                $('#listSearchWrap').classList.toggle('has-value', !!value);
+                render();
+            }
+
+            search.addEventListener('input', e => setQuery(e.target.value, 'list'));
+            $('#listSearchClear').addEventListener('click', () => { setQuery('', 'clear'); search.focus(); });
+
+            $('#filterChips').addEventListener('click', e => {
+                const chip = e.target.closest('[data-filter]');
+                if (chip) { state.filter = chip.dataset.filter; state.page = 1; render(); }
+            });
+
+            $('#refreshBtn').addEventListener('click', e => {
+                const ic = $('i', e.currentTarget);
+                ic.style.transition = 'transform .6s';
+                ic.style.transform = 'rotate(360deg)';
+                setTimeout(() => location.reload(), 350);
+            });
+
+            $('#pager').addEventListener('click', e => {
+                const b = e.target.closest('button[data-p]');
+                if (!b || b.disabled) return;
+                const p = b.dataset.p;
+                state.page = p === 'prev' ? state.page - 1 : p === 'next' ? state.page + 1 : +p;
+                render();
+                listEl.scrollTop = 0;
+            });
+
+            let submitting = false;
+            listEl.addEventListener('submit', e => {
+                const form = e.target;
+                if (submitting) { e.preventDefault(); return; }
+
+                if (form.classList.contains('js-perm-delete')) {
+                    e.preventDefault();
+                    openDelete(form);
+                    return;
+                }
+                submitting = true;
+            });
+
+            const dialog = $('#deleteDialog');
+            let pendingForm = null, lastFocus = null;
+
+            function openDelete(form) {
+                pendingForm = form;
+                lastFocus = document.activeElement;
+                dialog.hidden = false;
+                $('[data-dialog="cancel"]', dialog).focus();
+            }
+            function closeDelete() {
+                dialog.hidden = true;
+                pendingForm = null;
+                lastFocus?.focus?.();
+            }
+
+            dialog.addEventListener('click', e => {
+                const act = e.target.closest('[data-dialog]')?.dataset.dialog;
+                if (act === 'ok' && pendingForm && !submitting) {
+                    submitting = true;
+                    const okBtn = $('[data-dialog="ok"]', dialog);
+                    okBtn.disabled = true;
+                    okBtn.innerHTML = '<span class="spin"></span> Siliniyor…';
+                    pendingForm.submit();
+                } else if (act === 'cancel' || e.target === dialog) closeDelete();
+            });
+
+            document.addEventListener('keydown', e => { if (e.key === 'Escape' && !dialog.hidden && !submitting) closeDelete(); });
+
+            window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
+
+            window.Mailora.onSearch = value => setQuery(value, 'global');
+
+            setQuery(state.query, 'init');
+
+            const successMessage = @Json.Serialize(successMessage);
+            if (successMessage) showToast(successMessage, 'bi-check2-circle');
+        })();
+    </script>
+}

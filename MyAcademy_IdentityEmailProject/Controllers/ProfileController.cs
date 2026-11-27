@@ -118,21 +118,18 @@ namespace MyAcademy_IdentityEmailProject.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UploadProfilePhoto(ProfilePhotoViewModel model)
         {
-            // 1. Kullanıcının fotoğraf seçip seçmediğini kontrol et
             if (model.Photo == null || model.Photo.Length == 0)
             {
                 TempData["ErrorMessage"] = "Lütfen bir fotoğraf seçiniz.";
                 return RedirectToAction(nameof(MyProfile));
             }
 
-            // 2. Dosya boyutunu kontrol et
             if (model.Photo.Length > MaxPhotoSize)
             {
                 TempData["ErrorMessage"] = "Fotoğraf boyutu en fazla 2 MB olabilir.";
                 return RedirectToAction(nameof(MyProfile));
             }
 
-            // 3. Dosya uzantısını kontrol et
             var extension = Path.GetExtension(model.Photo.FileName).ToLowerInvariant();
 
             if (!AllowedPhotoExtensions.Contains(extension))
@@ -141,7 +138,6 @@ namespace MyAcademy_IdentityEmailProject.Controllers
                 return RedirectToAction(nameof(MyProfile));
             }
 
-            // 4. Dosyanın gerçek fotoğraf olup olmadığını kontrol et
             var header = new byte[12];
 
             using (var stream = model.Photo.OpenReadStream())
@@ -155,7 +151,6 @@ namespace MyAcademy_IdentityEmailProject.Controllers
                 }
             }
 
-            // 5. Giriş yapan kullanıcıyı bul
             var user = await _userManager.GetUserAsync(User);
 
             if (user == null)
@@ -163,33 +158,26 @@ namespace MyAcademy_IdentityEmailProject.Controllers
                 return Challenge();
             }
 
-            // 6. Fotoğrafın kaydedileceği klasörü belirle
             var uploadFolder = Path.Combine(
                 _webHostEnvironment.WebRootPath,
                 "uploads",
                 "profile"
             );
 
-            // Klasör yoksa oluştur
             Directory.CreateDirectory(uploadFolder);
 
-            // 7. Benzersiz bir dosya adı oluştur
             var fileName = Guid.NewGuid().ToString() + extension;
 
-            // Fotoğrafın tam kayıt yolunu belirle
             var filePath = Path.Combine(uploadFolder, fileName);
 
-            // 8. Fotoğrafı klasöre kaydet
             using (var fileStream = new FileStream(filePath, FileMode.Create))
             {
                 await model.Photo.CopyToAsync(fileStream);
             }
 
-            // 9. Kullanıcının profil fotoğrafı adresini güncelle
             var oldImageUrl = user.ImageUrl;
             user.ImageUrl = "/uploads/profile/" + fileName;
 
-            // 10. Değişikliği veritabanına kaydet
             var result = await _userManager.UpdateAsync(user);
 
             if (result.Succeeded)
@@ -198,7 +186,6 @@ namespace MyAcademy_IdentityEmailProject.Controllers
                 return RedirectToAction(nameof(MyProfile));
             }
 
-            // Veritabanı güncellenemezse yeni yüklenen dosyayı sil
             if (System.IO.File.Exists(filePath))
             {
                 System.IO.File.Delete(filePath);
@@ -233,7 +220,6 @@ namespace MyAcademy_IdentityEmailProject.Controllers
             {
                 await _signInManager.RefreshSignInAsync(user);
 
-                // Yalnızca başarılı değişiklikte: Türkiye saatine göre işlem anı (dd.MM.yyyy HH:mm)
                 TempData["PasswordSuccessMessage"] = "Şifreniz başarıyla değiştirildi.";
                 TempData["PasswordChangedAt"] = GetTurkeyNow().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
                 return RedirectToAction(nameof(MyProfile));
@@ -247,8 +233,6 @@ namespace MyAcademy_IdentityEmailProject.Controllers
             return RedirectToAction(nameof(MyProfile));
         }
 
-        // Sunucunun saat diliminden bağımsız olarak Türkiye yerel saatini döndürür.
-        // "Europe/Istanbul" (IANA) Linux/macOS ve ICU'lu Windows'ta, "Turkey Standard Time" eski Windows'ta geçerlidir.
         private static DateTime GetTurkeyNow()
         {
             TimeZoneInfo turkeyZone;
@@ -266,13 +250,11 @@ namespace MyAcademy_IdentityEmailProject.Controllers
 
         private static bool IsValidImageSignature(byte[] header)
         {
-            // JPEG
             if (header[0] == 0xFF &&
                 header[1] == 0xD8 &&
                 header[2] == 0xFF)
                 return true;
 
-            // PNG
             if (header[0] == 0x89 &&
                 header[1] == 0x50 &&
                 header[2] == 0x4E &&
@@ -283,7 +265,6 @@ namespace MyAcademy_IdentityEmailProject.Controllers
                 header[7] == 0x0A)
                 return true;
 
-            // WEBP
             if (header[0] == 0x52 &&
                 header[1] == 0x49 &&
                 header[2] == 0x46 &&
